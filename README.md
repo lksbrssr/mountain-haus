@@ -9,6 +9,8 @@ password. Reservation requests land in a Google Sheet you own.
 Built with Next.js + Tailwind, deployed on Vercel. PRs welcome — the easiest
 things to change are in `src/lib/`.
 
+**Live:** https://mountain-haus.vercel.app (behind a shared password)
+
 ---
 
 ## Make it yours (no code required)
@@ -72,6 +74,6 @@ Prefer email instead of a sheet? Uncomment the `MailApp.sendEmail(...)` block in
 
 ## Deploy
 
-Already on Vercel. Pushes to `main` deploy to production; every PR gets its own
-preview URL automatically. Set the env vars in **Vercel → Settings →
-Environment Variables**.
+Already on Vercel at **https://mountain-haus.vercel.app**. Pushes to `main`
+deploy to production; every PR gets its own preview URL automatically. Set the
+env vars in **Vercel → Settings → Environment Variables**.
