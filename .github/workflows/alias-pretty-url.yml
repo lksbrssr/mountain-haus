@@ -1,0 +1,57 @@
+name: Point pretty URL at latest production deploy
+
+# Vercel's git integration deploys production on every push to main, but the
+# bare *.vercel.app alias (mountain-haus.vercel.app) doesn't auto-follow. This
+# job waits for the production deployment built from THIS commit to go READY,
+# then re-points the pretty domain at it. Pure Vercel REST API — no CLI auth.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: alias-pretty-url
+  cancel-in-progress: false
+
+jobs:
+  alias:
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      TEAM_ID: ${{ vars.VERCEL_ORG_ID }}
+      PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+      PRETTY_DOMAIN: mountain-haus.vercel.app
+      API: https://api.vercel.com
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Wait for the matching production deploy, then alias it
+        run: |
+          set -euo pipefail
+          sha="$GITHUB_SHA"
+          echo "Target commit: $sha"
+          done=""
+          for i in $(seq 1 80); do   # up to ~20 min (80 x 15s)
+            curl -s -H "Authorization: Bearer $VERCEL_TOKEN" \
+              "$API/v6/deployments?projectId=$PROJECT_ID&teamId=$TEAM_ID&target=production&limit=20" > deps.json
+            info="$(python3 .github/scripts/pick_deploy.py "$sha" deps.json)"
+            dpl="$(echo "$info" | awk '{print $1}')"
+            state="$(echo "$info" | awk '{print $2}')"
+            echo "attempt $i: deployment='${dpl:-none}' state='${state:-none}'"
+            if [ -n "${dpl:-}" ] && [ "${state:-}" = "READY" ]; then
+              echo "Pointing $PRETTY_DOMAIN -> $dpl"
+              curl -s -X POST -H "Authorization: Bearer $VERCEL_TOKEN" \
+                -H "Content-Type: application/json" \
+                "$API/v2/deployments/$dpl/aliases?teamId=$TEAM_ID" \
+                -d "{\"alias\":\"$PRETTY_DOMAIN\"}" > alias.json
+              python3 -c "import sys,json; d=json.load(open('alias.json')); print('alias ->', d.get('alias')); sys.exit(1 if d.get('error') else 0)"
+              done="yes"; break
+            fi
+            if [ "${state:-}" = "ERROR" ] || [ "${state:-}" = "CANCELED" ]; then
+              echo "Production deployment did not succeed (state=$state)"; exit 1
+            fi
+            sleep 15
+          done
+          if [ -z "$done" ]; then echo "Timed out waiting for the production deployment"; exit 1; fi
+          echo "Done. https://$PRETTY_DOMAIN now serves commit $sha"
