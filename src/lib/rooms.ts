@@ -8,74 +8,64 @@ export type Room = {
   size: string;
   view: string;
   amenities: string[];
-  images: string[];
+  images: string[]; // leave empty [] to show a "photo coming soon" placeholder
 };
 
-// Add or edit rooms here — this is the easiest thing to PR.
+// The four rooms of The Haus. Sizes are approximate, read off the original
+// floor plans (Grundriss EG / OG). Photos aren't in yet, so `images` is empty
+// and the site shows tasteful placeholders. PRs welcome.
 export const rooms: Room[] = [
   {
-    slug: "lake-view-suite",
-    name: "The Lake View Suite",
-    short: "Corner suite with a wall of windows over the water.",
+    slug: "luxury",
+    name: "Luxury",
+    short: "The master bedroom, with its own balcony over the garden.",
     description:
-      "The best seat in the house. Floor-to-ceiling windows frame the lake, a reading nook catches the afternoon sun, and the bathroom has a deep soaking tub. Wake up to mist on the water.",
+      "The best room in the house — the old Elternschlafzimmer. A king bed, French doors onto a private balcony facing the garden and the mountains, and the main bathroom just across the hall. Wake up to the Wendelstein.",
     sleeps: 2,
     bed: "1 king",
-    size: "32 m²",
-    view: "Lake & Alps",
-    amenities: ["Lake view", "Soaking tub", "Nespresso", "Reading nook", "Underfloor heating"],
-    images: [
-      "https://images.unsplash.com/photo-1618773928121-c32242e63f39?auto=format&fit=crop&w=1600&q=80",
-      "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=1600&q=80",
-    ],
+    size: "~16 m²",
+    view: "Balcony & mountains",
+    amenities: ["Private balcony", "Mountain view", "King bed", "Bathroom across the hall", "Reading chairs"],
+    images: [],
   },
   {
-    slug: "garden-room",
-    name: "The Garden Room",
-    short: "Ground-floor room opening straight onto the herb garden.",
+    slug: "mountain-view",
+    name: "Mountain View",
+    short: "Upstairs corner room looking straight at the Wendelstein.",
     description:
-      "Step out of bed and into the garden. French doors open onto a private patch of lavender and rosemary, with a small patio for morning coffee. Calm, green, and close to the kitchen.",
+      "A bright upper-floor room with big windows framing the mountain and plenty of morning sun. A queen bed and a desk in the corner — the nicest spot in the house to sit with a coffee and a map of tomorrow's hike.",
     sleeps: 2,
     bed: "1 queen",
-    size: "26 m²",
-    view: "Garden",
-    amenities: ["Private patio", "Garden access", "Nespresso", "Rain shower", "Desk"],
-    images: [
-      "https://images.unsplash.com/photo-1560185007-cde436f6a4d0?auto=format&fit=crop&w=1600&q=80",
-      "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=1600&q=80",
-    ],
+    size: "~13 m²",
+    view: "Wendelstein",
+    amenities: ["Mountain view", "Morning sun", "Queen bed", "Desk", "Upstairs & quiet"],
+    images: [],
   },
   {
-    slug: "the-loft",
-    name: "The Loft",
-    short: "Beam-ceilinged hideaway at the top of the house.",
+    slug: "kids-paradise",
+    name: "Kids' Paradise",
+    short: "Three beds, balcony access, and room to make a den.",
     description:
-      "Up under the eaves: exposed beams, a skylight for stargazing, and a cosy pitched ceiling. The quietest room in the house and a favourite for longer stays.",
+      "Built for a tribe of small people. Three single beds, space on the floor for games, and a door onto the balcony. Blackout blinds for proper lie-ins and a shelf of books and toys. Grown-ups welcome too.",
     sleeps: 3,
-    bed: "1 queen + 1 single",
-    size: "30 m²",
-    view: "Treetops",
-    amenities: ["Skylight", "Exposed beams", "Nespresso", "Rain shower", "Extra single bed"],
-    images: [
-      "https://images.unsplash.com/photo-1598928506311-c55ded91a20c?auto=format&fit=crop&w=1600&q=80",
-      "https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=1600&q=80",
-    ],
+    bed: "3 singles",
+    size: "~14 m²",
+    view: "Garden & balcony",
+    amenities: ["Three single beds", "Balcony access", "Blackout blinds", "Books & toys", "Upstairs"],
+    images: [],
   },
   {
-    slug: "the-cabin",
-    name: "The Boathouse Cabin",
-    short: "Standalone cabin at the water's edge.",
+    slug: "the-studio",
+    name: "The Studio",
+    short: "A snug ground-floor room, handy for the garden.",
     description:
-      "A little wood cabin all to yourself, ten steps from the jetty. Swim before breakfast, nap to the sound of the water, and light the wood stove when it cools. Dogs welcome.",
-    sleeps: 4,
-    bed: "1 king + sofa bed",
-    size: "40 m²",
-    view: "Jetty & lake",
-    amenities: ["Private cabin", "Wood stove", "Kitchenette", "Jetty access", "Dog friendly"],
-    images: [
-      "https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?auto=format&fit=crop&w=1600&q=80",
-      "https://images.unsplash.com/photo-1476673160081-cf065607f449?auto=format&fit=crop&w=1600&q=80",
-    ],
+      "A cosy little ground-floor room just off the living area — the old Geräteraum, now a quiet bolt-hole with a queen bed. Steps from the kitchen and the garden door, and the easiest room to slip in and out of after a late walk.",
+    sleeps: 2,
+    bed: "1 queen",
+    size: "~8 m²",
+    view: "Garden",
+    amenities: ["Ground floor", "Queen bed", "Garden access", "Steps from the kitchen", "Snug & quiet"],
+    images: [],
   },
 ];
 

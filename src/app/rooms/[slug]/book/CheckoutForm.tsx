@@ -1,8 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import { useMemo, useState } from "react";
 import { nightsBetween, prettyDate } from "@/lib/format";
+import { RoomImage } from "@/components/RoomImage";
 
 export function CheckoutForm({
   slug,
@@ -13,7 +13,7 @@ export function CheckoutForm({
   slug: string;
   roomName: string;
   sleeps: number;
-  image: string;
+  image?: string;
 }) {
   const today = new Date().toISOString().slice(0, 10);
   const [checkIn, setCheckIn] = useState("");
@@ -153,7 +153,7 @@ export function CheckoutForm({
       <aside className="md:col-span-2">
         <div className="sticky top-6 overflow-hidden rounded-3xl bg-cream shadow-soft">
           <div className="relative h-32 w-full">
-            <Image src={image} alt={roomName} fill className="object-cover" />
+            <RoomImage src={image} alt={roomName} />
           </div>
           <div className="p-6">
             <h3 className="font-display text-xl text-forest">{roomName}</h3>

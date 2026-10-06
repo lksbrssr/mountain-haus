@@ -13,6 +13,12 @@ export function SiteHeader({ light = false }: { light?: boolean }) {
           <Link href="/#rooms" className="opacity-80 transition hover:opacity-100">
             Rooms
           </Link>
+          <Link href="/#area" className="hidden opacity-80 transition hover:opacity-100 sm:inline">
+            The area
+          </Link>
+          <Link href="/#house" className="hidden opacity-80 transition hover:opacity-100 sm:inline">
+            Good to know
+          </Link>
           <Link
             href="/#rooms"
             className={`rounded-full px-4 py-2 text-sm transition ${

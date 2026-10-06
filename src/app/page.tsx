@@ -2,6 +2,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { house } from "@/lib/house";
 import { rooms } from "@/lib/rooms";
+import { activities } from "@/lib/area";
+import { houseInfo, wifi, stayTimes } from "@/lib/info";
+import { RoomImage } from "@/components/RoomImage";
 import { SiteFooter, SiteHeader } from "@/components/Chrome";
 
 export default function Home() {
@@ -85,14 +88,12 @@ export default function Home() {
                 className="group block overflow-hidden rounded-3xl bg-cream shadow-soft transition hover:-translate-y-1"
               >
                 <div className="relative aspect-[4/3] overflow-hidden">
-                  <Image
+                  <RoomImage
                     src={room.images[0]}
                     alt={room.name}
-                    fill
                     sizes="(min-width: 768px) 50vw, 100vw"
-                    className="object-cover transition duration-700 group-hover:scale-105"
                   />
-                  <span className="absolute left-4 top-4 rounded-full bg-cream/90 px-3 py-1 text-xs font-medium text-forest">
+                  <span className="absolute left-4 top-4 z-10 rounded-full bg-cream/90 px-3 py-1 text-xs font-medium text-forest">
                     Sleeps {room.sleeps}
                   </span>
                 </div>
@@ -109,6 +110,92 @@ export default function Home() {
                   </span>
                 </div>
               </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* What to do in the area */}
+      <section id="area" className="mx-auto max-w-6xl px-6 py-20">
+        <p className="font-sans text-sm uppercase tracking-[0.25em] text-clay">
+          Around The Haus
+        </p>
+        <h2 className="mt-2 font-display text-4xl text-forest">
+          What to do in the area
+        </h2>
+        <p className="mt-3 max-w-xl text-pine/90">
+          Bayrischzell sits at the foot of the Wendelstein. A few of our
+          favourites, a short drive or walk from the door.
+        </p>
+
+        <div className="mt-10 grid gap-6 sm:grid-cols-2">
+          {activities.map((a) => (
+            <a
+              key={a.title}
+              href={a.link}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group flex gap-5 rounded-3xl border border-clay/30 bg-cream p-6 transition hover:-translate-y-1 hover:shadow-soft"
+            >
+              <div className="text-3xl">{a.emoji}</div>
+              <div>
+                <div className="flex flex-wrap items-center gap-x-2 text-xs uppercase tracking-[0.18em] text-clay">
+                  <span>{a.kind}</span>
+                  <span className="opacity-50">·</span>
+                  <span>{a.season}</span>
+                </div>
+                <h3 className="mt-1 font-display text-2xl text-forest">
+                  {a.title}{" "}
+                  <span className="inline-block text-lake transition group-hover:translate-x-1">
+                    →
+                  </span>
+                </h3>
+                <p className="mt-2 leading-relaxed text-pine/90">{a.description}</p>
+              </div>
+            </a>
+          ))}
+        </div>
+      </section>
+
+      {/* Good to know — house info */}
+      <section id="house" className="bg-forest py-20 text-cream">
+        <div className="mx-auto max-w-6xl px-6">
+          <p className="font-sans text-sm uppercase tracking-[0.25em] text-clay">
+            For guests
+          </p>
+          <h2 className="mt-2 font-display text-4xl">Good to know</h2>
+          <p className="mt-3 max-w-xl text-cream/80">
+            Everything you need while you're here. {house.address}.
+          </p>
+
+          {/* WiFi + times highlight */}
+          <div className="mt-10 grid gap-4 sm:grid-cols-3">
+            <div className="rounded-3xl bg-cream/10 p-6">
+              <p className="text-xs uppercase tracking-[0.2em] text-cream/60">WiFi network</p>
+              <p className="mt-2 font-display text-2xl">{wifi.network}</p>
+            </div>
+            <div className="rounded-3xl bg-cream/10 p-6">
+              <p className="text-xs uppercase tracking-[0.2em] text-cream/60">WiFi password</p>
+              <p className="mt-2 font-mono text-2xl">{wifi.password}</p>
+            </div>
+            <div className="rounded-3xl bg-cream/10 p-6">
+              <p className="text-xs uppercase tracking-[0.2em] text-cream/60">Check in / out</p>
+              <p className="mt-2 text-lg">
+                In {stayTimes.checkIn}
+                <br />
+                Out {stayTimes.checkOut}
+              </p>
+            </div>
+          </div>
+
+          {/* Info cards */}
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {houseInfo.map((item) => (
+              <div key={item.title} className="rounded-3xl bg-cream/10 p-6">
+                <div className="text-2xl">{item.emoji}</div>
+                <h3 className="mt-3 font-display text-xl">{item.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-cream/80">{item.body}</p>
+              </div>
             ))}
           </div>
         </div>

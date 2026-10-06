@@ -1,7 +1,7 @@
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getRoom, rooms } from "@/lib/rooms";
+import { RoomImage } from "@/components/RoomImage";
 import { SiteFooter, SiteHeader } from "@/components/Chrome";
 
 export function generateStaticParams() {
@@ -26,15 +26,10 @@ export default function RoomPage({ params }: { params: { slug: string } }) {
       <section className="mx-auto max-w-6xl px-6 pt-6">
         <div className="grid gap-3 md:grid-cols-5">
           <div className="relative aspect-[4/3] overflow-hidden rounded-3xl md:col-span-3">
-            <Image src={room.images[0]} alt={room.name} fill priority className="object-cover" />
+            <RoomImage src={room.images[0]} alt={room.name} priority />
           </div>
           <div className="relative aspect-[4/3] overflow-hidden rounded-3xl md:col-span-2">
-            <Image
-              src={room.images[1] ?? room.images[0]}
-              alt={room.name}
-              fill
-              className="object-cover"
-            />
+            <RoomImage src={room.images[1] ?? room.images[0]} alt={room.name} />
           </div>
         </div>
       </section>

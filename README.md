@@ -1,9 +1,10 @@
-# Haus am See 🌿
+# The Haus 🏔️
 
-A small, pretty booking site for a holiday home. Each room has its own page, a
-mini "checkout" collects reservation requests (everything is **free**), and the
-whole site sits behind a shared password. Reservation requests land in a Google
-Sheet you own.
+A small, pretty booking site for a holiday home in Bayrischzell. Each room has
+its own page, a mini "checkout" collects reservation requests (everything is
+**free**), there's a what-to-do-in-the-area guide and a "good to know" section
+for guests (WiFi, laundry, etc.), and the whole site sits behind a shared
+password. Reservation requests land in a Google Sheet you own.
 
 Built with Next.js + Tailwind, deployed on Vercel. PRs welcome — the easiest
 things to change are in `src/lib/`.
@@ -14,11 +15,15 @@ things to change are in `src/lib/`.
 
 | What | Where |
 |------|-------|
-| House name, tagline, location, blurb, hero photo | `src/lib/house.ts` |
+| House name, tagline, location, address, blurb, hero photo | `src/lib/house.ts` |
 | Rooms (add/remove/edit, photos, amenities) | `src/lib/rooms.ts` |
+| What-to-do-in-the-area guide | `src/lib/area.ts` |
+| Good-to-know info (WiFi password, laundry, etc.) | `src/lib/info.ts` |
 | The site password | Vercel env var `SITE_PASSWORD` |
 
-Photos are plain URLs — drop in any image link (Unsplash works out of the box).
+Room photos aren't in yet — `images` is left empty in `src/lib/rooms.ts`, so the
+site shows tasteful "photo coming soon" placeholders. Add any image URL (Unsplash
+works out of the box) when you have real photos.
 
 ---
 

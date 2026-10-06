@@ -17,5 +17,5 @@ export function prettyDate(iso: string): string {
 }
 
 export function reference(): string {
-  return "HAS-" + Math.random().toString(36).slice(2, 7).toUpperCase();
+  return "HAUS-" + Math.random().toString(36).slice(2, 7).toUpperCase();
 }
