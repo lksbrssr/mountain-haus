@@ -6,9 +6,10 @@ import { SiteFooter } from "@/components/Chrome";
 export default function BookedPage({
   searchParams,
 }: {
-  searchParams: { ref?: string; room?: string; in?: string; out?: string };
+  searchParams: { ref?: string; room?: string; in?: string; out?: string; count?: string };
 }) {
-  const { ref, room, in: checkIn, out: checkOut } = searchParams;
+  const { ref, room, in: checkIn, out: checkOut, count } = searchParams;
+  const n = count ? parseInt(count, 10) : 0;
 
   return (
     <main className="flex min-h-screen flex-col bg-sand/40">
@@ -17,10 +18,13 @@ export default function BookedPage({
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-lake/15 text-3xl">
             🌿
           </div>
-          <h1 className="mt-6 font-display text-4xl text-forest">Request sent</h1>
+          <h1 className="mt-6 font-display text-4xl text-forest">
+            {n > 1 ? `${n} requests sent` : "Request sent"}
+          </h1>
           <p className="mt-3 leading-relaxed text-pine/90">
-            Thank you — we've got your request and we'll email you shortly to
-            confirm. Nothing to pay, ever.
+            {n > 1
+              ? `Thank you — we've got your ${n} stay requests and we'll email you shortly to confirm. Nothing to pay, ever.`
+              : "Thank you — we've got your request and we'll email you shortly to confirm. Nothing to pay, ever."}
           </p>
 
           {ref && (

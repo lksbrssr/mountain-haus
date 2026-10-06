@@ -13,9 +13,9 @@ export default function CalendarPage() {
         </Link>
         <h1 className="mt-4 font-display text-4xl text-forest sm:text-5xl">Calendar</h1>
         <p className="mt-3 max-w-xl text-pine/90">
-          Booking status across all four rooms. Zoom from a single week out to the whole year,
-          scroll to pan, and <strong className="font-semibold text-forest">drag across a room</strong>{" "}
-          to request those nights.
+          Booking status across all four rooms. Zoom from a single week out to the whole year and
+          scroll to pan. <strong className="font-semibold text-forest">Drag across a room</strong> to
+          pick nights, add up to 10 stays to your requests, then send them all at once.
         </p>
         <CalendarBoard rooms={rooms.map((r) => ({ slug: r.slug, name: r.name, sleeps: r.sleeps }))} />
       </div>

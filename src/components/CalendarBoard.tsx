@@ -1,18 +1,34 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PublicReservation } from "@/lib/reservations";
-import { prettyRange, rangesOverlap } from "@/lib/format";
+import { prettyRange, rangesOverlap, maxBookingDateISO } from "@/lib/format";
 
 type RoomRef = { slug: string; name: string; sleeps: number };
 type Mode = "week" | "fortnight" | "month" | "quarter" | "year";
+type CartItem = {
+  id: string;
+  slug: string;
+  name: string;
+  checkIn: string;
+  checkOut: string;
+  nights: number;
+  guests: number;
+};
+
+const MAX_REQUESTS = 10;
 
 const ROOM_STYLES = [
   "bg-lake text-cream",
   "bg-pine text-cream",
   "bg-clay text-forest",
   "bg-forest text-cream",
+];
+const ROOM_PENDING = [
+  "border-lake text-lake bg-lake/10",
+  "border-pine text-pine bg-pine/10",
+  "border-clay text-clay bg-clay/15",
+  "border-forest text-forest bg-forest/10",
 ];
 
 const MODES: { key: Mode; label: string; cellW: number; header: "day" | "month" }[] = [
@@ -25,6 +41,8 @@ const MODES: { key: Mode; label: string; cellW: number; header: "day" | "month" 
 
 const DAY = 86_400_000;
 const GRID = "rgba(185,163,126,0.18)";
+const uid = () =>
+  typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
 const toISO = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const parse = (s: string) => {
@@ -46,6 +64,14 @@ export function CalendarBoard({ rooms }: { rooms: RoomRef[] }) {
   const [loading, setLoading] = useState(true);
   const [sel, setSel] = useState<{ room: number; a: number; b: number } | null>(null);
   const [guests, setGuests] = useState(2);
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [notes, setNotes] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const dragging = useRef(false);
   const touchDown = useRef<{ room: number; idx: number } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -72,7 +98,6 @@ export function CalendarBoard({ rooms }: { rooms: RoomRef[] }) {
   const labelW = 128;
   const laneH = 30;
 
-  // Natural window for the mode, then clamp so the past is never shown.
   const natural = useMemo(() => {
     const y = anchor.getFullYear();
     const mo = anchor.getMonth();
@@ -117,7 +142,6 @@ export function CalendarBoard({ rooms }: { rooms: RoomRef[] }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, anchorISO, totalDays]);
 
-  // reset selection + center today when the view changes
   useEffect(() => {
     setSel(null);
     const el = scrollRef.current;
@@ -130,7 +154,7 @@ export function CalendarBoard({ rooms }: { rooms: RoomRef[] }) {
   }, [mode, anchorISO, loading]);
 
   function shift(dir: number) {
-    if (dir < 0 && atStart) return; // never page into the past
+    if (dir < 0 && atStart) return;
     if (mode === "week") setAnchorISO(toISO(addDays(windowStart, dir * 7)));
     else if (mode === "fortnight") setAnchorISO(toISO(addDays(windowStart, dir * 14)));
     else {
@@ -196,14 +220,92 @@ export function CalendarBoard({ rooms }: { rooms: RoomRef[] }) {
     const checkIn = toISO(addDays(windowStart, s));
     const checkOut = toISO(addDays(windowStart, e + 1));
     const nights = e - s + 1;
-    const conflict = reservations.some(
+    const conflictExisting = reservations.some(
       (r) => r.room === room.name && rangesOverlap(checkIn, checkOut, r.checkIn, r.checkOut),
     );
-    return { room, checkIn, checkOut, nights, conflict };
+    const conflictCart = cart.some(
+      (c) => c.slug === room.slug && rangesOverlap(checkIn, checkOut, c.checkIn, c.checkOut),
+    );
+    return { room, checkIn, checkOut, nights, conflict: conflictExisting || conflictCart };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sel, anchorISO, mode, reservations]);
+  }, [sel, anchorISO, mode, reservations, cart]);
+
+  function addToCart() {
+    if (!selInfo) return;
+    setFormError(null);
+    if (selInfo.checkOut > maxBookingDateISO()) {
+      setFormError("Bookings can only be up to two years ahead.");
+      return;
+    }
+    if (selInfo.conflict) {
+      setFormError("Those dates overlap a stay that's already booked or added.");
+      return;
+    }
+    if (cart.length >= MAX_REQUESTS) {
+      setFormError(`You've reached the max number of booking requests (${MAX_REQUESTS}).`);
+      return;
+    }
+    setCart((c) => [
+      ...c,
+      {
+        id: uid(),
+        slug: selInfo.room.slug,
+        name: selInfo.room.name,
+        checkIn: selInfo.checkIn,
+        checkOut: selInfo.checkOut,
+        nights: selInfo.nights,
+        guests: Math.min(guests, selInfo.room.sleeps),
+      },
+    ]);
+    setSel(null);
+  }
+
+  function removeFromCart(id: string) {
+    setCart((c) => c.filter((x) => x.id !== id));
+    setFormError(null);
+  }
+
+  async function submitAll() {
+    setSubmitError(null);
+    if (cart.length === 0) return;
+    if (!name.trim() || !email.trim()) {
+      setSubmitError("Please add your name and email.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/reserve-batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          email,
+          phone,
+          notes,
+          bookings: cart.map((c) => ({
+            slug: c.slug,
+            roomName: c.name,
+            checkIn: c.checkIn,
+            checkOut: c.checkOut,
+            nights: c.nights,
+            guests: c.guests,
+          })),
+        }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.error || "Something went wrong sending your requests.");
+      }
+      window.location.href = `/booked?count=${cart.length}`;
+    } catch (err) {
+      setSubmitError((err as Error).message);
+      setSubmitting(false);
+    }
+  }
 
   const btn = "rounded-lg px-3 py-1.5 text-sm transition";
+  const field =
+    "mt-1 w-full rounded-lg border border-clay/40 bg-white px-3 py-2 text-forest outline-none transition focus:border-lake focus:ring-2 focus:ring-lake/30";
   const gridBg = { backgroundImage: `repeating-linear-gradient(to right, ${GRID} 0 1px, transparent 1px ${cellW}px)` };
 
   return (
@@ -218,11 +320,7 @@ export function CalendarBoard({ rooms }: { rooms: RoomRef[] }) {
         </div>
         <div className="flex flex-wrap gap-1 rounded-xl bg-cream p-1">
           {MODES.map((m) => (
-            <button
-              key={m.key}
-              onClick={() => setMode(m.key)}
-              className={`${btn} ${mode === m.key ? "bg-forest text-cream" : "text-pine hover:bg-sand/60"}`}
-            >
+            <button key={m.key} onClick={() => setMode(m.key)} className={`${btn} ${mode === m.key ? "bg-forest text-cream" : "text-pine hover:bg-sand/60"}`}>
               {m.label}
             </button>
           ))}
@@ -266,6 +364,7 @@ export function CalendarBoard({ rooms }: { rooms: RoomRef[] }) {
           {/* Room rows */}
           {rooms.map((room, ri) => {
             const lanes = lanesFor(room);
+            const pending = cart.filter((c) => c.slug === room.slug);
             const rowH = Math.max(1, lanes.length) * laneH + 10;
             return (
               <div key={room.slug} className="flex border-b border-clay/20 last:border-b-0">
@@ -321,6 +420,34 @@ export function CalendarBoard({ rooms }: { rooms: RoomRef[] }) {
                     }),
                   )}
 
+                  {/* pending (cart) bars */}
+                  {pending.map((c) => {
+                    const s = Math.max(0, dayIndex(c.checkIn));
+                    const e = Math.min(totalDays, dayIndex(c.checkOut));
+                    if (e <= s) return null;
+                    return (
+                      <div
+                        key={c.id}
+                        title={`Your request · ${c.checkIn} → ${c.checkOut}`}
+                        style={{ left: s * cellW + 2, width: (e - s) * cellW - 4, top: 5, height: laneH - 6 }}
+                        className={`pointer-events-none absolute z-[7] flex items-center justify-between gap-1 overflow-hidden rounded-md border-2 border-dashed ${ROOM_PENDING[ri % 4]}`}
+                      >
+                        <span className="truncate pl-1.5 text-[11px] font-semibold">Yours</span>
+                        <button
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeFromCart(c.id);
+                          }}
+                          aria-label="Remove request"
+                          className="pointer-events-auto px-1 text-sm leading-none hover:opacity-70"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    );
+                  })}
+
                   {/* drag selection overlay */}
                   {sel && sel.room === ri && (
                     <div
@@ -340,7 +467,7 @@ export function CalendarBoard({ rooms }: { rooms: RoomRef[] }) {
         </div>
       </div>
 
-      {/* Selection summary */}
+      {/* Current selection */}
       <div className="mt-5">
         {selInfo ? (
           <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-clay/30 bg-cream p-5">
@@ -354,9 +481,7 @@ export function CalendarBoard({ rooms }: { rooms: RoomRef[] }) {
                 {selInfo.nights === 1 ? "night" : "nights"}
               </p>
               {selInfo.conflict && (
-                <p className="mt-1 text-sm text-red-600">
-                  These dates overlap an existing stay — try another range.
-                </p>
+                <p className="mt-1 text-sm text-red-600">These dates overlap a stay already booked or added.</p>
               )}
             </div>
             <div className="flex items-center gap-3">
@@ -375,26 +500,96 @@ export function CalendarBoard({ rooms }: { rooms: RoomRef[] }) {
               <button onClick={() => setSel(null)} className="rounded-lg border border-clay/40 px-3 py-2 text-sm text-pine transition hover:bg-sand/60">
                 Clear
               </button>
-              {selInfo.conflict ? (
-                <span className="rounded-lg bg-clay/30 px-4 py-2 text-sm text-pine/70">Unavailable</span>
-              ) : (
-                <Link
-                  href={`/rooms/${selInfo.room.slug}/book?in=${selInfo.checkIn}&out=${selInfo.checkOut}&guests=${Math.min(guests, selInfo.room.sleeps)}`}
-                  className="rounded-xl bg-forest px-5 py-2.5 text-sm font-medium text-cream transition hover:bg-pine"
-                >
-                  Request this stay →
-                </Link>
-              )}
+              <button
+                onClick={addToCart}
+                disabled={selInfo.conflict}
+                className="rounded-xl bg-forest px-5 py-2.5 text-sm font-medium text-cream transition hover:bg-pine disabled:opacity-50"
+              >
+                Add to requests
+              </button>
             </div>
           </div>
         ) : (
           <p className="text-sm text-pine/70">
             {loading
               ? "Loading bookings…"
-              : "Drag across a room’s row to pick the nights you’d like — your request will appear here."}
+              : "Drag across a room’s row to pick nights, then add them to your requests — up to 10 stays."}
           </p>
         )}
+        {formError && <p className="mt-2 text-sm text-red-600">{formError}</p>}
       </div>
+
+      {/* Cart + submit */}
+      {cart.length > 0 && (
+        <div className="mt-6 rounded-2xl border border-clay/30 bg-cream p-5 sm:p-6">
+          <div className="flex items-center justify-between">
+            <h3 className="font-display text-2xl text-forest">Your requests</h3>
+            <span className="text-sm text-pine/70">
+              {cart.length}/{MAX_REQUESTS}
+            </span>
+          </div>
+
+          <ul className="mt-4 space-y-2">
+            {cart.map((c) => {
+              const ri = rooms.findIndex((r) => r.slug === c.slug);
+              return (
+                <li key={c.id} className="flex items-center justify-between gap-3 rounded-xl border border-clay/30 bg-white/60 px-4 py-2.5">
+                  <div className="flex items-center gap-3">
+                    <span className={`h-3 w-3 shrink-0 rounded-full ${ROOM_STYLES[ri % 4].split(" ")[0]}`} />
+                    <div>
+                      <p className="text-sm font-medium text-forest">{c.name}</p>
+                      <p className="text-xs text-pine/80">
+                        {prettyRange(c.checkIn, c.checkOut)} · {c.nights} {c.nights === 1 ? "night" : "nights"} ·{" "}
+                        {c.guests} {c.guests === 1 ? "guest" : "guests"}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => removeFromCart(c.id)}
+                    aria-label="Remove request"
+                    className="rounded-full px-2.5 py-1 text-lg leading-none text-pine/60 transition hover:bg-sand/60 hover:text-forest"
+                  >
+                    ×
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+
+          <div className="mt-5 border-t border-clay/30 pt-5">
+            <p className="text-sm font-medium text-forest">Your details</p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="text-xs text-pine">Name</label>
+                <input value={name} onChange={(e) => setName(e.target.value)} className={field} placeholder="Jane Doe" />
+              </div>
+              <div>
+                <label className="text-xs text-pine">Email</label>
+                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={field} placeholder="jane@example.com" />
+              </div>
+              <div>
+                <label className="text-xs text-pine">Phone (optional)</label>
+                <input value={phone} onChange={(e) => setPhone(e.target.value)} className={field} placeholder="Optional" />
+              </div>
+              <div>
+                <label className="text-xs text-pine">Notes (optional)</label>
+                <input value={notes} onChange={(e) => setNotes(e.target.value)} className={field} placeholder="Arrival time, a dog, …" />
+              </div>
+            </div>
+
+            {submitError && <p className="mt-3 text-sm text-red-600">{submitError}</p>}
+
+            <button
+              onClick={submitAll}
+              disabled={submitting}
+              className="mt-4 w-full rounded-xl bg-forest py-3 font-medium text-cream transition hover:bg-pine disabled:opacity-60 sm:w-auto sm:px-8"
+            >
+              {submitting ? "Sending…" : `Send ${cart.length} booking request${cart.length === 1 ? "" : "s"}`}
+            </button>
+            <p className="mt-3 text-xs text-pine/60">These are requests, not confirmed bookings. We&apos;ll email you back.</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
