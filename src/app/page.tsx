@@ -25,7 +25,7 @@ export default function Home() {
           alt={house.name}
           fill
           priority
-          className="object-cover"
+          className="object-cover object-[center_28%]"
         />
         <div className="absolute inset-0 bg-gradient-to-b from-ink/40 via-ink/10 to-ink/70" />
         <SiteHeader light />
