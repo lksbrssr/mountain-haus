@@ -8,7 +8,13 @@ export function generateStaticParams() {
   return rooms.map((r) => ({ slug: r.slug }));
 }
 
-export default function BookPage({ params }: { params: { slug: string } }) {
+export default function BookPage({
+  params,
+  searchParams,
+}: {
+  params: { slug: string };
+  searchParams: { in?: string; out?: string; guests?: string };
+}) {
   const room = getRoom(params.slug);
   if (!room) notFound();
 
@@ -35,6 +41,9 @@ export default function BookPage({ params }: { params: { slug: string } }) {
           roomName={room.name}
           sleeps={room.sleeps}
           image={room.images[0]}
+          initialCheckIn={searchParams.in}
+          initialCheckOut={searchParams.out}
+          initialGuests={searchParams.guests ? Number(searchParams.guests) : undefined}
         />
       </div>
       <SiteFooter />

@@ -26,7 +26,7 @@ export const rooms: Room[] = [
     size: "~16 m²",
     view: "Balcony & mountains",
     amenities: ["Private balcony", "Mountain view", "King bed", "Bathroom across the hall", "Reading chairs"],
-    images: [],
+    images: ["/rooms/luxury.webp"],
   },
   {
     slug: "mountain-view",
@@ -39,7 +39,7 @@ export const rooms: Room[] = [
     size: "~13 m²",
     view: "Wendelstein",
     amenities: ["Mountain view", "Morning sun", "Queen bed", "Desk", "Upstairs & quiet"],
-    images: [],
+    images: ["/rooms/mountain-view.webp"],
   },
   {
     slug: "kids-paradise",
@@ -52,7 +52,7 @@ export const rooms: Room[] = [
     size: "~14 m²",
     view: "Garden & balcony",
     amenities: ["Three single beds", "Balcony access", "Blackout blinds", "Books & toys", "Upstairs"],
-    images: [],
+    images: ["/rooms/kids-paradise.webp"],
   },
   {
     slug: "the-studio",

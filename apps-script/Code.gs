@@ -54,6 +54,48 @@ function doPost(e) {
   }
 }
 
+/**
+ * doGet — returns upcoming reservations for the "Who's coming" feature.
+ * Only non-sensitive fields are returned (reference, room, dates, guests, name).
+ * Email / phone / notes are never exposed.
+ */
+function doGet(e) {
+  try {
+    if (SECRET && (!e || e.parameter.secret !== SECRET)) {
+      return json({ ok: false, error: "unauthorized" });
+    }
+
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Reservations")
+      || SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
+    var rows = sheet.getDataRange().getValues();
+
+    var out = [];
+    for (var i = 1; i < rows.length; i++) {
+      var r = rows[i];
+      if (!r[1] && !r[7]) continue; // skip blank rows (no reference & no name)
+      out.push({
+        reference: r[1],
+        room: r[2],
+        checkIn: fmtDate(r[3]),
+        checkOut: fmtDate(r[4]),
+        guests: r[6],
+        name: r[7],
+      });
+    }
+    return json({ ok: true, reservations: out });
+  } catch (err) {
+    return json({ ok: false, error: String(err) });
+  }
+}
+
+// Cells may come back as strings ("2026-07-10") or Date objects — normalise to YYYY-MM-DD.
+function fmtDate(v) {
+  if (v instanceof Date) {
+    return Utilities.formatDate(v, Session.getScriptTimeZone(), "yyyy-MM-dd");
+  }
+  return String(v).slice(0, 10);
+}
+
 function json(obj) {
   return ContentService
     .createTextOutput(JSON.stringify(obj))

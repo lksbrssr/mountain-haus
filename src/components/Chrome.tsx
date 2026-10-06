@@ -16,7 +16,13 @@ export function SiteHeader({ light = false }: { light?: boolean }) {
           <Link href="/#area" className="hidden opacity-80 transition hover:opacity-100 sm:inline">
             The area
           </Link>
-          <Link href="/#house" className="hidden opacity-80 transition hover:opacity-100 sm:inline">
+          <Link href="/#where" className="hidden opacity-80 transition hover:opacity-100 lg:inline">
+            Where
+          </Link>
+          <Link href="/whos-coming" className="hidden opacity-80 transition hover:opacity-100 sm:inline">
+            Who&apos;s coming
+          </Link>
+          <Link href="/#house" className="hidden opacity-80 transition hover:opacity-100 lg:inline">
             Good to know
           </Link>
           <Link

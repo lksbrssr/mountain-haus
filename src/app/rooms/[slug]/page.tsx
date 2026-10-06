@@ -29,7 +29,7 @@ export default function RoomPage({ params }: { params: { slug: string } }) {
             <RoomImage src={room.images[0]} alt={room.name} priority />
           </div>
           <div className="relative aspect-[4/3] overflow-hidden rounded-3xl md:col-span-2">
-            <RoomImage src={room.images[1] ?? room.images[0]} alt={room.name} />
+            <RoomImage src={room.images[1]} alt={room.name} label="More photos soon" />
           </div>
         </div>
       </section>
@@ -79,7 +79,7 @@ export default function RoomPage({ params }: { params: { slug: string } }) {
             <div className="sticky top-6 rounded-3xl bg-cream p-7 shadow-soft">
               <div className="flex items-baseline justify-between">
                 <span className="font-display text-3xl text-forest">Free</span>
-                <span className="text-sm text-clay line-through">€240 / night</span>
+                <span className="text-sm text-clay">On the house</span>
               </div>
               <p className="mt-1 text-sm text-pine/80">
                 Our treat. Send a request and we'll confirm your dates.

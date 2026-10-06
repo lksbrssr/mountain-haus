@@ -16,6 +16,16 @@ export function prettyDate(iso: string): string {
   });
 }
 
+export function prettyRange(checkIn: string, checkOut: string): string {
+  return `${prettyDate(checkIn)} → ${prettyDate(checkOut)}`;
+}
+
+// Two stays overlap if one starts before the other ends (checkout is exclusive).
+export function rangesOverlap(aIn: string, aOut: string, bIn: string, bOut: string): boolean {
+  if (!aIn || !aOut || !bIn || !bOut) return false;
+  return aIn < bOut && bIn < aOut;
+}
+
 export function reference(): string {
   return "HAUS-" + Math.random().toString(36).slice(2, 7).toUpperCase();
 }

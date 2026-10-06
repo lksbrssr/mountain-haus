@@ -1,28 +1,52 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { nightsBetween, prettyDate } from "@/lib/format";
+import { useEffect, useMemo, useState } from "react";
+import { nightsBetween, prettyDate, prettyRange, rangesOverlap } from "@/lib/format";
 import { RoomImage } from "@/components/RoomImage";
+import type { PublicReservation } from "@/lib/reservations";
 
 export function CheckoutForm({
   slug,
   roomName,
   sleeps,
   image,
+  initialCheckIn,
+  initialCheckOut,
+  initialGuests,
 }: {
   slug: string;
   roomName: string;
   sleeps: number;
   image?: string;
+  initialCheckIn?: string;
+  initialCheckOut?: string;
+  initialGuests?: number;
 }) {
   const today = new Date().toISOString().slice(0, 10);
-  const [checkIn, setCheckIn] = useState("");
-  const [checkOut, setCheckOut] = useState("");
-  const [guests, setGuests] = useState(2);
+  const [checkIn, setCheckIn] = useState(initialCheckIn ?? "");
+  const [checkOut, setCheckOut] = useState(initialCheckOut ?? "");
+  const [guests, setGuests] = useState(
+    Math.min(Math.max(initialGuests ?? 2, 1), sleeps),
+  );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [others, setOthers] = useState<PublicReservation[]>([]);
+  const [loadingOthers, setLoadingOthers] = useState(true);
 
   const nights = useMemo(() => nightsBetween(checkIn, checkOut), [checkIn, checkOut]);
+
+  useEffect(() => {
+    fetch("/api/reservations")
+      .then((r) => r.json())
+      .then((d) => setOthers(d.reservations ?? []))
+      .catch(() => setOthers([]))
+      .finally(() => setLoadingOthers(false));
+  }, []);
+
+  const overlaps = useMemo(() => {
+    if (nights <= 0) return [];
+    return others.filter((r) => rangesOverlap(checkIn, checkOut, r.checkIn, r.checkOut));
+  }, [others, checkIn, checkOut, nights]);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -114,6 +138,34 @@ export function CheckoutForm({
           </select>
         </div>
 
+        {nights > 0 && (
+          <div className="rounded-2xl border border-clay/30 bg-cream p-5">
+            <p className="text-sm font-medium text-forest">Who else will be around</p>
+            {loadingOthers ? (
+              <p className="mt-2 text-sm text-pine/70">Checking the calendar…</p>
+            ) : overlaps.length === 0 ? (
+              <p className="mt-2 text-sm text-pine/80">
+                Looks like you&apos;ll have the whole Haus to yourselves 🤫
+              </p>
+            ) : (
+              <ul className="mt-3 space-y-2">
+                {overlaps.map((r, i) => (
+                  <li key={i} className="flex items-center justify-between gap-3 text-sm">
+                    <span className="text-forest">
+                      {r.name}
+                      {r.guests > 1 ? ` + ${r.guests - 1}` : ""}{" "}
+                      <span className="text-clay">· {r.room}</span>
+                    </span>
+                    <span className="shrink-0 text-pine/70">
+                      {prettyRange(r.checkIn, r.checkOut)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+
         <div className="border-t border-clay/30 pt-6">
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -176,13 +228,9 @@ export function CheckoutForm({
             <div className="mt-4 space-y-2 border-t border-clay/30 pt-4 text-sm">
               <div className="flex justify-between">
                 <dt className="text-pine/80">
-                  €240 × {nights || 0} {nights === 1 ? "night" : "nights"}
+                  {nights || 0} {nights === 1 ? "night" : "nights"}
                 </dt>
-                <dd className="text-forest">€{240 * (nights || 0)}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-pine/80">House guest discount</dt>
-                <dd className="text-lake">−€{240 * (nights || 0)}</dd>
+                <dd className="text-forest">Complimentary</dd>
               </div>
             </div>
 

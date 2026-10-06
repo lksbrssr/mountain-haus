@@ -4,10 +4,18 @@ import { house } from "@/lib/house";
 import { rooms } from "@/lib/rooms";
 import { activities } from "@/lib/area";
 import { houseInfo, wifi, stayTimes } from "@/lib/info";
-import { RoomImage } from "@/components/RoomImage";
+import { AvailabilityExplorer } from "@/components/AvailabilityExplorer";
 import { SiteFooter, SiteHeader } from "@/components/Chrome";
 
 export default function Home() {
+  const mapsEmbed = `https://maps.google.com/maps?q=${encodeURIComponent(
+    house.mapQuery,
+  )}&z=14&output=embed`;
+  const googleLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+    house.mapQuery,
+  )}`;
+  const appleLink = `https://maps.apple.com/?q=${encodeURIComponent(house.mapQuery)}&ll=${house.lat},${house.lng}`;
+
   return (
     <main>
       {/* Hero */}
@@ -37,7 +45,7 @@ export default function Home() {
                 href="#rooms"
                 className="rounded-full bg-cream px-6 py-3 text-sm font-medium text-forest transition hover:bg-white"
               >
-                Choose a room
+                Check your dates
               </Link>
               <Link
                 href="#rooms"
@@ -55,7 +63,7 @@ export default function Home() {
         <div className="grid gap-10 md:grid-cols-3">
           {[
             ["Swim before breakfast", "The jetty is thirty seconds from the door. Cold, clear, and yours."],
-            ["Four rooms, no front desk", "Pick the room that suits you. Send a request. We'll confirm by email."],
+            ["Four rooms, no front desk", "Choose your dates and we'll show what's free. Send a request; we'll confirm by email."],
             ["On the house", "This isn't a hotel. There's no bill — just tell us when you'd like to come."],
           ].map(([title, body]) => (
             <div key={title}>
@@ -66,53 +74,9 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Rooms */}
+      {/* Rooms — dates-first availability */}
       <section id="rooms" className="bg-sand/50 py-20">
-        <div className="mx-auto max-w-6xl px-6">
-          <div className="mb-10 flex items-end justify-between">
-            <div>
-              <p className="font-sans text-sm uppercase tracking-[0.25em] text-clay">
-                The rooms
-              </p>
-              <h2 className="mt-2 font-display text-4xl text-forest">
-                Where would you like to sleep?
-              </h2>
-            </div>
-          </div>
-
-          <div className="grid gap-8 md:grid-cols-2">
-            {rooms.map((room, i) => (
-              <Link
-                key={room.slug}
-                href={`/rooms/${room.slug}`}
-                className="group block overflow-hidden rounded-3xl bg-cream shadow-soft transition hover:-translate-y-1"
-              >
-                <div className="relative aspect-[4/3] overflow-hidden">
-                  <RoomImage
-                    src={room.images[0]}
-                    alt={room.name}
-                    sizes="(min-width: 768px) 50vw, 100vw"
-                  />
-                  <span className="absolute left-4 top-4 z-10 rounded-full bg-cream/90 px-3 py-1 text-xs font-medium text-forest">
-                    Sleeps {room.sleeps}
-                  </span>
-                </div>
-                <div className="flex items-start justify-between gap-4 p-6">
-                  <div>
-                    <h3 className="font-display text-2xl text-forest">{room.name}</h3>
-                    <p className="mt-1 text-pine/90">{room.short}</p>
-                    <p className="mt-3 text-sm text-clay">
-                      {room.size} · {room.bed} · {room.view}
-                    </p>
-                  </div>
-                  <span className="mt-1 shrink-0 text-forest transition group-hover:translate-x-1">
-                    →
-                  </span>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
+        <AvailabilityExplorer rooms={rooms} />
       </section>
 
       {/* What to do in the area */}
@@ -154,6 +118,87 @@ export default function Home() {
               </div>
             </a>
           ))}
+        </div>
+      </section>
+
+      {/* Where it is */}
+      <section id="where" className="bg-sand/50 py-20">
+        <div className="mx-auto max-w-6xl px-6">
+          <p className="font-sans text-sm uppercase tracking-[0.25em] text-clay">
+            Getting here
+          </p>
+          <h2 className="mt-2 font-display text-4xl text-forest">Where it is</h2>
+
+          <div className="relative mt-8 aspect-[21/9] w-full overflow-hidden rounded-3xl border border-clay/30 shadow-soft">
+            <Image
+              src="/birdseye.webp"
+              alt="Bayrischzell in the valley below the Wendelstein"
+              fill
+              sizes="(min-width: 1152px) 1088px, 100vw"
+              className="object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-ink/50 to-transparent" />
+            <p className="absolute bottom-4 left-5 text-sm text-cream/90">
+              Bayrischzell, in the valley below the Wendelstein
+            </p>
+          </div>
+
+          <div className="mt-8 grid gap-8 md:grid-cols-5">
+            <div className="md:col-span-2">
+              <p className="font-display text-2xl text-forest">{house.name}</p>
+              <p className="mt-1 text-pine/90">{house.address}</p>
+
+              <div className="mt-5 flex flex-wrap gap-3">
+                <a
+                  href={googleLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-full bg-forest px-5 py-2.5 text-sm font-medium text-cream transition hover:bg-pine"
+                >
+                  Open in Google Maps
+                </a>
+                <a
+                  href={appleLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-full border border-forest/30 px-5 py-2.5 text-sm font-medium text-forest transition hover:bg-forest/5"
+                >
+                  Open in Apple Maps
+                </a>
+              </div>
+
+              <dl className="mt-8 space-y-4 border-t border-clay/30 pt-6 text-sm">
+                <div>
+                  <dt className="text-clay">From Munich</dt>
+                  <dd className="mt-1 text-pine/90">
+                    About 80 km / 1 hour by car — the A8 then the B307 up the valley.
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-clay">By train</dt>
+                  <dd className="mt-1 text-pine/90">
+                    BRB from München Hbf to Bayrischzell (~1h15), then a short walk or taxi.
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-clay">Parking</dt>
+                  <dd className="mt-1 text-pine/90">Free, in the carport and beside the house.</dd>
+                </div>
+              </dl>
+            </div>
+
+            <div className="md:col-span-3">
+              <div className="overflow-hidden rounded-3xl border border-clay/30 shadow-soft">
+                <iframe
+                  title={`Map to ${house.name}`}
+                  src={mapsEmbed}
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  className="block h-[300px] w-full border-0 sm:h-[420px]"
+                />
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
