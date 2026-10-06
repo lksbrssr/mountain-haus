@@ -29,6 +29,28 @@ function doPost(e) {
     var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Reservations")
       || SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
 
+    // Batch: multiple bookings in one request (shared guest info). Written in a
+    // single setValues() call so up to 10 rows land atomically and fast.
+    if (data.bookings && data.bookings.length) {
+      var rows = data.bookings.map(function (b) {
+        return [
+          data.submittedAt || new Date().toISOString(),
+          b.reference || "",
+          b.room || "",
+          b.checkIn || "",
+          b.checkOut || "",
+          b.nights || "",
+          b.guests || "",
+          data.name || "",
+          data.email || "",
+          data.phone || "",
+          data.notes || "",
+        ];
+      });
+      sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
+      return json({ ok: true });
+    }
+
     sheet.appendRow([
       data.submittedAt || new Date().toISOString(),
       data.reference || "",
