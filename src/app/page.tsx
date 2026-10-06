@@ -64,7 +64,7 @@ export default function Home() {
           {[
             ["Swim before breakfast", "The jetty is thirty seconds from the door. Cold, clear, and yours."],
             ["Four rooms, no front desk", "Choose your dates and we'll show what's free. Send a request; we'll confirm by email."],
-            ["On the house", "This isn't a hotel. There's no bill — just tell us when you'd like to come."],
+            ["On the haus", "This isn't a hotel. There's no bill — just tell us when you'd like to come."],
           ].map(([title, body]) => (
             <div key={title}>
               <h3 className="font-display text-xl text-forest">{title}</h3>
