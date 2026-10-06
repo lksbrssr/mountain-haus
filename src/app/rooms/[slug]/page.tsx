@@ -90,9 +90,6 @@ export default function RoomPage({ params }: { params: { slug: string } }) {
               >
                 Request these dates
               </Link>
-              <p className="mt-3 text-center text-xs text-pine/60">
-                No card. No charge. Ever.
-              </p>
             </div>
           </aside>
         </div>

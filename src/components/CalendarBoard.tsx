@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PublicReservation } from "@/lib/reservations";
+import { prettyRange, rangesOverlap } from "@/lib/format";
 
-type RoomRef = { slug: string; name: string };
+type RoomRef = { slug: string; name: string; sleeps: number };
 type Mode = "week" | "fortnight" | "month" | "quarter" | "year";
 
 const ROOM_STYLES = [
@@ -43,6 +44,10 @@ export function CalendarBoard({ rooms }: { rooms: RoomRef[] }) {
   const [anchorISO, setAnchorISO] = useState(toISO(new Date()));
   const [reservations, setReservations] = useState<PublicReservation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sel, setSel] = useState<{ room: number; a: number; b: number } | null>(null);
+  const [guests, setGuests] = useState(2);
+  const dragging = useRef(false);
+  const touchDown = useRef<{ room: number; idx: number } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -53,30 +58,43 @@ export function CalendarBoard({ rooms }: { rooms: RoomRef[] }) {
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    const up = () => (dragging.current = false);
+    window.addEventListener("pointerup", up);
+    return () => window.removeEventListener("pointerup", up);
+  }, []);
+
   const cfg = MODES.find((m) => m.key === mode)!;
   const cellW = cfg.cellW;
   const anchor = parse(anchorISO);
   const todayISO = toISO(new Date());
+  const todayStart = parse(todayISO);
   const labelW = 128;
   const laneH = 30;
 
-  const { windowStart, totalDays } = useMemo(() => {
+  // Natural window for the mode, then clamp so the past is never shown.
+  const natural = useMemo(() => {
     const y = anchor.getFullYear();
     const mo = anchor.getMonth();
-    if (mode === "week") return { windowStart: mondayOf(anchor), totalDays: 7 };
-    if (mode === "fortnight") return { windowStart: mondayOf(anchor), totalDays: 14 };
-    if (mode === "month") return { windowStart: new Date(y, mo, 1), totalDays: daysInMonth(y, mo) };
+    if (mode === "week") return { start: mondayOf(anchor), days: 7 };
+    if (mode === "fortnight") return { start: mondayOf(anchor), days: 14 };
+    if (mode === "month") return { start: new Date(y, mo, 1), days: daysInMonth(y, mo) };
     if (mode === "quarter") {
       const qm = Math.floor(mo / 3) * 3;
       return {
-        windowStart: new Date(y, qm, 1),
-        totalDays: daysInMonth(y, qm) + daysInMonth(y, qm + 1) + daysInMonth(y, qm + 2),
+        start: new Date(y, qm, 1),
+        days: daysInMonth(y, qm) + daysInMonth(y, qm + 1) + daysInMonth(y, qm + 2),
       };
     }
     const leap = (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
-    return { windowStart: new Date(y, 0, 1), totalDays: leap ? 366 : 365 };
+    return { start: new Date(y, 0, 1), days: leap ? 366 : 365 };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, anchorISO]);
+
+  const atStart = natural.start.getTime() <= todayStart.getTime();
+  const windowStart = atStart ? todayStart : natural.start;
+  const skipped = atStart ? Math.round((todayStart.getTime() - natural.start.getTime()) / DAY) : 0;
+  const totalDays = Math.max(1, natural.days - skipped);
 
   const windowStartISO = toISO(windowStart);
   const windowEndISO = toISO(addDays(windowStart, totalDays));
@@ -85,7 +103,6 @@ export function CalendarBoard({ rooms }: { rooms: RoomRef[] }) {
   const todayIdx = dayIndex(todayISO);
   const days = Array.from({ length: totalDays }, (_, i) => addDays(windowStart, i));
 
-  // month bands (for quarter/year header + boundary lines)
   const monthSegs = useMemo(() => {
     const segs: { start: number; span: number; date: Date }[] = [];
     let i = 0;
@@ -98,19 +115,22 @@ export function CalendarBoard({ rooms }: { rooms: RoomRef[] }) {
     }
     return segs;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, anchorISO]);
+  }, [mode, anchorISO, totalDays]);
 
-  // center today (or window) when the view changes
+  // reset selection + center today when the view changes
   useEffect(() => {
+    setSel(null);
     const el = scrollRef.current;
-    if (!el) return;
-    el.scrollLeft = todayIdx >= 0 && todayIdx < totalDays
-      ? Math.max(0, labelW + todayIdx * cellW - el.clientWidth / 2)
-      : 0;
+    if (el)
+      el.scrollLeft =
+        todayIdx >= 0 && todayIdx < totalDays
+          ? Math.max(0, labelW + todayIdx * cellW - el.clientWidth / 2)
+          : 0;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, anchorISO, loading]);
 
   function shift(dir: number) {
+    if (dir < 0 && atStart) return; // never page into the past
     if (mode === "week") setAnchorISO(toISO(addDays(windowStart, dir * 7)));
     else if (mode === "fortnight") setAnchorISO(toISO(addDays(windowStart, dir * 14)));
     else {
@@ -141,15 +161,57 @@ export function CalendarBoard({ rooms }: { rooms: RoomRef[] }) {
     return lanes;
   }
 
+  const idxFromX = (clientX: number, el: HTMLElement) =>
+    Math.min(totalDays - 1, Math.max(0, Math.floor((clientX - el.getBoundingClientRect().left) / cellW)));
+
+  function onDown(e: React.PointerEvent<HTMLDivElement>, ri: number) {
+    const idx = idxFromX(e.clientX, e.currentTarget);
+    if (e.pointerType === "mouse") {
+      e.preventDefault();
+      dragging.current = true;
+      e.currentTarget.setPointerCapture(e.pointerId);
+      setSel({ room: ri, a: idx, b: idx });
+    } else {
+      touchDown.current = { room: ri, idx };
+    }
+  }
+  function onMove(e: React.PointerEvent<HTMLDivElement>, ri: number) {
+    if (!dragging.current || !sel || sel.room !== ri) return;
+    const idx = idxFromX(e.clientX, e.currentTarget);
+    setSel((s) => (s ? { ...s, b: idx } : s));
+  }
+  function onUp(e: React.PointerEvent<HTMLDivElement>, ri: number) {
+    if (e.pointerType !== "mouse" && touchDown.current?.room === ri) {
+      const idx = idxFromX(e.clientX, e.currentTarget);
+      if (idx === touchDown.current.idx) setSel({ room: ri, a: idx, b: idx });
+      touchDown.current = null;
+    }
+  }
+
+  const selInfo = useMemo(() => {
+    if (!sel) return null;
+    const s = Math.min(sel.a, sel.b);
+    const e = Math.max(sel.a, sel.b);
+    const room = rooms[sel.room];
+    const checkIn = toISO(addDays(windowStart, s));
+    const checkOut = toISO(addDays(windowStart, e + 1));
+    const nights = e - s + 1;
+    const conflict = reservations.some(
+      (r) => r.room === room.name && rangesOverlap(checkIn, checkOut, r.checkIn, r.checkOut),
+    );
+    return { room, checkIn, checkOut, nights, conflict };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sel, anchorISO, mode, reservations]);
+
   const btn = "rounded-lg px-3 py-1.5 text-sm transition";
   const gridBg = { backgroundImage: `repeating-linear-gradient(to right, ${GRID} 0 1px, transparent 1px ${cellW}px)` };
 
   return (
-    <div className="mt-8">
+    <div className="mt-8 select-none">
       {/* Controls */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-2">
-          <button onClick={() => shift(-1)} className={`${btn} border border-clay/40 hover:bg-cream`} aria-label="Previous">←</button>
+          <button onClick={() => shift(-1)} disabled={atStart} className={`${btn} border border-clay/40 enabled:hover:bg-cream disabled:opacity-40`} aria-label="Previous">←</button>
           <button onClick={() => setAnchorISO(todayISO)} className={`${btn} border border-clay/40 hover:bg-cream`}>Today</button>
           <button onClick={() => shift(1)} className={`${btn} border border-clay/40 hover:bg-cream`} aria-label="Next">→</button>
           <span className="ml-2 font-display text-xl text-forest">{rangeLabel}</span>
@@ -201,7 +263,7 @@ export function CalendarBoard({ rooms }: { rooms: RoomRef[] }) {
             </div>
           </div>
 
-          {/* Rows */}
+          {/* Room rows */}
           {rooms.map((room, ri) => {
             const lanes = lanesFor(room);
             const rowH = Math.max(1, lanes.length) * laneH + 10;
@@ -212,22 +274,25 @@ export function CalendarBoard({ rooms }: { rooms: RoomRef[] }) {
                   <span className="text-sm font-medium leading-tight text-forest">{room.name}</span>
                 </div>
 
-                <div className="relative" style={{ width: dayAreaW, height: rowH, ...gridBg }}>
-                  {/* weekend shading (day modes only) */}
+                <div
+                  className="relative cursor-crosshair touch-pan-x"
+                  style={{ width: dayAreaW, height: rowH, ...gridBg }}
+                  onPointerDown={(e) => onDown(e, ri)}
+                  onPointerMove={(e) => onMove(e, ri)}
+                  onPointerUp={(e) => onUp(e, ri)}
+                >
                   {cfg.header === "day" &&
                     days.map((d, i) =>
                       d.getDay() === 0 || d.getDay() === 6 ? (
                         <div key={i} className="absolute top-0 bottom-0 bg-sand/40" style={{ left: i * cellW, width: cellW }} />
                       ) : null,
                     )}
-                  {/* month boundary lines (month modes) */}
                   {cfg.header === "month" &&
                     monthSegs.map((s) =>
                       s.start === 0 ? null : (
                         <div key={s.start} className="absolute top-0 bottom-0 w-px bg-clay/40" style={{ left: s.start * cellW }} />
                       ),
                     )}
-                  {/* today line */}
                   {todayIdx >= 0 && todayIdx < totalDays && (
                     <div className="absolute top-0 bottom-0 z-10 w-0.5 bg-lake/70" style={{ left: todayIdx * cellW + (cfg.header === "day" ? cellW / 2 : 0) }} />
                   )}
@@ -245,7 +310,7 @@ export function CalendarBoard({ rooms }: { rooms: RoomRef[] }) {
                           key={b.checkIn + b.name}
                           title={`${b.name}${b.guests > 1 ? ` +${b.guests - 1}` : ""} · ${b.checkIn} → ${b.checkOut}`}
                           style={{ left: s * cellW + 2, width: (e - s) * cellW - 4, top: li * laneH + 5, height: laneH - 6 }}
-                          className={`absolute z-[5] flex items-center overflow-hidden rounded-md px-2 text-xs font-medium ${ROOM_STYLES[ri % 4]} ${openL ? "rounded-l-none" : ""} ${openR ? "rounded-r-none" : ""}`}
+                          className={`pointer-events-none absolute z-[5] flex items-center overflow-hidden rounded-md px-2 text-xs font-medium ${ROOM_STYLES[ri % 4]} ${openL ? "rounded-l-none" : ""} ${openR ? "rounded-r-none" : ""}`}
                         >
                           <span className="truncate">
                             {b.name}
@@ -255,6 +320,19 @@ export function CalendarBoard({ rooms }: { rooms: RoomRef[] }) {
                       );
                     }),
                   )}
+
+                  {/* drag selection overlay */}
+                  {sel && sel.room === ri && (
+                    <div
+                      className={`pointer-events-none absolute z-[8] rounded-md border-2 border-dashed ${selInfo?.conflict ? "border-red-500 bg-red-500/10" : "border-forest bg-forest/15"}`}
+                      style={{
+                        left: Math.min(sel.a, sel.b) * cellW + 1,
+                        width: (Math.abs(sel.a - sel.b) + 1) * cellW - 2,
+                        top: 4,
+                        bottom: 4,
+                      }}
+                    />
+                  )}
                 </div>
               </div>
             );
@@ -262,16 +340,60 @@ export function CalendarBoard({ rooms }: { rooms: RoomRef[] }) {
         </div>
       </div>
 
-      {/* Footer */}
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-pine/80">
-        <p>
-          {loading
-            ? "Loading bookings…"
-            : reservations.length === 0
-              ? "No bookings yet — every room is open. Scroll to pan; use the zoom buttons to change range."
-              : "Bars are requested stays; empty space is free. Scroll to pan, zoom to change range."}
-        </p>
-        <Link href="/#rooms" className="text-lake underline">Request a stay →</Link>
+      {/* Selection summary */}
+      <div className="mt-5">
+        {selInfo ? (
+          <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-clay/30 bg-cream p-5">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className={`h-3 w-3 rounded-full ${ROOM_STYLES[sel!.room % 4].split(" ")[0]}`} />
+                <p className="font-display text-xl text-forest">{selInfo.room.name}</p>
+              </div>
+              <p className="mt-1 text-pine/90">
+                {prettyRange(selInfo.checkIn, selInfo.checkOut)} · {selInfo.nights}{" "}
+                {selInfo.nights === 1 ? "night" : "nights"}
+              </p>
+              {selInfo.conflict && (
+                <p className="mt-1 text-sm text-red-600">
+                  These dates overlap an existing stay — try another range.
+                </p>
+              )}
+            </div>
+            <div className="flex items-center gap-3">
+              <label className="text-sm text-pine">
+                Guests{" "}
+                <select
+                  value={Math.min(guests, selInfo.room.sleeps)}
+                  onChange={(e) => setGuests(Number(e.target.value))}
+                  className="ml-1 rounded-lg border border-clay/40 bg-white px-2 py-1.5 text-forest outline-none"
+                >
+                  {Array.from({ length: selInfo.room.sleeps }, (_, i) => i + 1).map((n) => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
+              </label>
+              <button onClick={() => setSel(null)} className="rounded-lg border border-clay/40 px-3 py-2 text-sm text-pine transition hover:bg-sand/60">
+                Clear
+              </button>
+              {selInfo.conflict ? (
+                <span className="rounded-lg bg-clay/30 px-4 py-2 text-sm text-pine/70">Unavailable</span>
+              ) : (
+                <Link
+                  href={`/rooms/${selInfo.room.slug}/book?in=${selInfo.checkIn}&out=${selInfo.checkOut}&guests=${Math.min(guests, selInfo.room.sleeps)}`}
+                  className="rounded-xl bg-forest px-5 py-2.5 text-sm font-medium text-cream transition hover:bg-pine"
+                >
+                  Request this stay →
+                </Link>
+              )}
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-pine/70">
+            {loading
+              ? "Loading bookings…"
+              : "Drag across a room’s row to pick the nights you’d like — your request will appear here."}
+          </p>
+        )}
       </div>
     </div>
   );

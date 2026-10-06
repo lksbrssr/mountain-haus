@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { house } from "@/lib/house";
+import { YodelButton } from "@/components/YodelButton";
 
 export function SiteHeader({ light = false }: { light?: boolean }) {
   const tone = light ? "text-cream" : "text-forest";
@@ -47,11 +48,12 @@ export function SiteHeader({ light = false }: { light?: boolean }) {
 export function SiteFooter() {
   return (
     <footer className="border-t border-clay/30 bg-cream">
-      <div className="mx-auto flex max-w-6xl flex-col gap-2 px-6 py-10 text-sm text-pine sm:flex-row sm:items-center sm:justify-between">
+      <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-10 text-sm text-pine sm:flex-row sm:items-center sm:justify-between">
         <p className="font-display text-base text-forest">{house.name}</p>
         <p className="opacity-70">
           {house.location} · Every stay is on us — just send a request.
         </p>
+        <YodelButton />
       </div>
     </footer>
   );

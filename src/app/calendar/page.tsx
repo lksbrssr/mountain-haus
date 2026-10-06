@@ -14,9 +14,10 @@ export default function CalendarPage() {
         <h1 className="mt-4 font-display text-4xl text-forest sm:text-5xl">Calendar</h1>
         <p className="mt-3 max-w-xl text-pine/90">
           Booking status across all four rooms. Zoom from a single week out to the whole year,
-          and scroll to pan the timeline.
+          scroll to pan, and <strong className="font-semibold text-forest">drag across a room</strong>{" "}
+          to request those nights.
         </p>
-        <CalendarBoard rooms={rooms.map((r) => ({ slug: r.slug, name: r.name }))} />
+        <CalendarBoard rooms={rooms.map((r) => ({ slug: r.slug, name: r.name, sleeps: r.sleeps }))} />
       </div>
       <SiteFooter />
     </main>
