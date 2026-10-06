@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { nightsBetween, prettyDate, prettyRange, rangesOverlap } from "@/lib/format";
+import { nightsBetween, prettyDate, prettyRange, rangesOverlap, maxBookingDateISO } from "@/lib/format";
 import { RoomImage } from "@/components/RoomImage";
 import type { PublicReservation } from "@/lib/reservations";
 
@@ -23,6 +23,7 @@ export function CheckoutForm({
   initialGuests?: number;
 }) {
   const today = new Date().toISOString().slice(0, 10);
+  const maxDate = maxBookingDateISO();
   const [checkIn, setCheckIn] = useState(initialCheckIn ?? "");
   const [checkOut, setCheckOut] = useState(initialCheckOut ?? "");
   const [guests, setGuests] = useState(
@@ -53,6 +54,10 @@ export function CheckoutForm({
     setError(null);
     if (nights <= 0) {
       setError("Please pick a check-out date after your check-in date.");
+      return;
+    }
+    if (checkOut > maxDate) {
+      setError("We can only take bookings up to two years ahead.");
       return;
     }
     setSubmitting(true);
@@ -104,6 +109,7 @@ export function CheckoutForm({
             <input
               type="date"
               min={today}
+              max={maxDate}
               value={checkIn}
               onChange={(e) => setCheckIn(e.target.value)}
               required
@@ -115,6 +121,7 @@ export function CheckoutForm({
             <input
               type="date"
               min={checkIn || today}
+              max={maxDate}
               value={checkOut}
               onChange={(e) => setCheckOut(e.target.value)}
               required

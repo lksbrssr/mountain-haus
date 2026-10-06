@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { reference } from "@/lib/format";
+import { revalidateTag } from "next/cache";
+import { reference, maxBookingDateISO, todayISO } from "@/lib/format";
+import { RESERVATIONS_TAG } from "@/lib/reservations";
+
+export const maxDuration = 60;
 
 type Payload = {
   slug: string;
@@ -19,6 +23,23 @@ export async function POST(req: Request) {
 
   if (!body || !body.name || !body.email || !body.checkIn || !body.checkOut) {
     return NextResponse.json({ ok: false, error: "Missing fields" }, { status: 400 });
+  }
+
+  // Dates must be sane: check-out after check-in, not in the past, and no more
+  // than two years out.
+  const today = todayISO();
+  const maxDate = maxBookingDateISO();
+  if (body.checkOut <= body.checkIn) {
+    return NextResponse.json({ ok: false, error: "Check-out must be after check-in" }, { status: 400 });
+  }
+  if (body.checkIn < today) {
+    return NextResponse.json({ ok: false, error: "Check-in can't be in the past" }, { status: 400 });
+  }
+  if (body.checkOut > maxDate) {
+    return NextResponse.json(
+      { ok: false, error: "We can only take bookings up to two years ahead" },
+      { status: 400 },
+    );
   }
 
   const ref = reference();
@@ -47,6 +68,9 @@ export async function POST(req: Request) {
         body: JSON.stringify(record),
       });
       if (!res.ok) throw new Error(`Sheet responded ${res.status}`);
+      // New booking written — refresh the cached reservations immediately so the
+      // calendar / availability / who's-coming reflect it right away.
+      revalidateTag(RESERVATIONS_TAG);
     } catch (err) {
       // Don't lose the request: log it so it's recoverable from Vercel logs.
       console.error("Failed to write reservation to sheet:", err);

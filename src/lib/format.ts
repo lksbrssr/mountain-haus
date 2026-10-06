@@ -26,6 +26,18 @@ export function rangesOverlap(aIn: string, aOut: string, bIn: string, bOut: stri
   return aIn < bOut && bIn < aOut;
 }
 
+// Bookings are accepted from today up to two years out.
+export function maxBookingDateISO(): string {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() + 2);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+export function todayISO(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 export function reference(): string {
   return "HAUS-" + Math.random().toString(36).slice(2, 7).toUpperCase();
 }

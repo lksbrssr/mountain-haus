@@ -5,6 +5,7 @@ import { house } from "@/lib/house";
 import { SiteFooter, SiteHeader } from "@/components/Chrome";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 export default async function WhosComing() {
   const today = new Date().toISOString().slice(0, 10);

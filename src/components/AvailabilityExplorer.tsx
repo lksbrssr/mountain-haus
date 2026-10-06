@@ -4,13 +4,14 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { Room } from "@/lib/rooms";
 import type { PublicReservation } from "@/lib/reservations";
-import { nightsBetween, prettyRange, rangesOverlap } from "@/lib/format";
+import { nightsBetween, prettyRange, rangesOverlap, maxBookingDateISO } from "@/lib/format";
 import { RoomImage } from "@/components/RoomImage";
 
 type Status = "idle" | "free" | "taken" | "toosmall";
 
 export function AvailabilityExplorer({ rooms }: { rooms: Room[] }) {
   const today = new Date().toISOString().slice(0, 10);
+  const maxDate = maxBookingDateISO();
   const [checkIn, setCheckIn] = useState("");
   const [checkOut, setCheckOut] = useState("");
   const [guests, setGuests] = useState(2);
@@ -52,6 +53,9 @@ export function AvailabilityExplorer({ rooms }: { rooms: Room[] }) {
         Pick your dates and we&apos;ll show you which rooms are free. It&apos;s a request, not
         a payment — we&apos;ll confirm by email.
       </p>
+      <Link href="/calendar" className="mt-2 inline-block text-sm text-lake underline">
+        Prefer a timeline? See the full booking calendar →
+      </Link>
 
       {/* Date search */}
       <div className="mt-8 rounded-3xl bg-cream p-6 shadow-soft">
@@ -61,6 +65,7 @@ export function AvailabilityExplorer({ rooms }: { rooms: Room[] }) {
             <input
               type="date"
               min={today}
+              max={maxDate}
               value={checkIn}
               onChange={(e) => setCheckIn(e.target.value)}
               className={field}
@@ -71,6 +76,7 @@ export function AvailabilityExplorer({ rooms }: { rooms: Room[] }) {
             <input
               type="date"
               min={checkIn || today}
+              max={maxDate}
               value={checkOut}
               onChange={(e) => setCheckOut(e.target.value)}
               className={field}
