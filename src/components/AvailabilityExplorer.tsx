@@ -45,71 +45,18 @@ export function AvailabilityExplorer({ rooms }: { rooms: Room[] }) {
 
   return (
     <div className="mx-auto max-w-6xl px-6">
-      <p className="font-sans text-sm uppercase tracking-[0.25em] text-clay">Plan your stay</p>
-      <h2 className="mt-2 font-display text-4xl text-forest">
-        When would you like to come?
-      </h2>
-      <p className="mt-3 max-w-xl text-pine/90">
-        Pick your dates and we&apos;ll show you which rooms are free. It&apos;s a request, not
-        a payment — we&apos;ll confirm by email.
-      </p>
-      <Link href="/calendar" className="mt-2 inline-block text-sm text-lake underline">
-        Prefer a timeline? See the full booking calendar →
-      </Link>
-
-      {/* Date search */}
-      <div className="mt-8 rounded-3xl bg-cream p-6 shadow-soft">
-        <div className="grid gap-4 sm:grid-cols-4">
-          <div>
-            <label className="text-sm font-medium text-forest">Check in</label>
-            <input
-              type="date"
-              min={today}
-              max={maxDate}
-              value={checkIn}
-              onChange={(e) => setCheckIn(e.target.value)}
-              className={field}
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium text-forest">Check out</label>
-            <input
-              type="date"
-              min={checkIn || today}
-              max={maxDate}
-              value={checkOut}
-              onChange={(e) => setCheckOut(e.target.value)}
-              className={field}
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium text-forest">Guests</label>
-            <select
-              value={guests}
-              onChange={(e) => setGuests(Number(e.target.value))}
-              className={field}
-            >
-              {Array.from({ length: maxSleeps }, (_, i) => i + 1).map((n) => (
-                <option key={n} value={n}>
-                  {n} {n === 1 ? "guest" : "guests"}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="flex items-end">
-            {hasDates ? (
-              <p className="text-sm text-pine/80">
-                <span className="font-medium text-forest">
-                  {freeCount} {freeCount === 1 ? "room" : "rooms"} free
-                </span>
-                <br />
-                {prettyRange(checkIn, checkOut)} · {nights} {nights === 1 ? "night" : "nights"}
-              </p>
-            ) : (
-              <p className="text-sm text-pine/60">Showing all four rooms below.</p>
-            )}
-          </div>
+      {/* Rooms intro + calendar button */}
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="font-sans text-sm uppercase tracking-[0.25em] text-clay">The rooms</p>
+          <h2 className="mt-2 font-display text-4xl text-forest">Where you&apos;ll stay</h2>
         </div>
+        <Link
+          href="/calendar"
+          className="inline-flex items-center gap-2 rounded-full bg-forest px-5 py-2.5 text-sm font-medium text-cream transition hover:bg-pine"
+        >
+          🗓 View the booking calendar →
+        </Link>
       </div>
 
       {/* Rooms */}
@@ -174,6 +121,70 @@ export function AvailabilityExplorer({ rooms }: { rooms: Room[] }) {
             </Link>
           );
         })}
+      </div>
+
+      {/* Date search — pick dates to check availability */}
+      <div className="mt-14">
+        <p className="font-sans text-sm uppercase tracking-[0.25em] text-clay">Plan your stay</p>
+        <h3 className="mt-2 font-display text-3xl text-forest">When would you like to come?</h3>
+        <p className="mt-3 max-w-xl text-pine/90">
+          Pick your dates and the rooms above show what&apos;s free. It&apos;s a request, not a
+          payment — we&apos;ll confirm by email.
+        </p>
+
+        <div className="mt-6 rounded-3xl bg-cream p-6 shadow-soft">
+          <div className="grid gap-4 sm:grid-cols-4">
+            <div>
+              <label className="text-sm font-medium text-forest">Check in</label>
+              <input
+                type="date"
+                min={today}
+                max={maxDate}
+                value={checkIn}
+                onChange={(e) => setCheckIn(e.target.value)}
+                className={field}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-forest">Check out</label>
+              <input
+                type="date"
+                min={checkIn || today}
+                max={maxDate}
+                value={checkOut}
+                onChange={(e) => setCheckOut(e.target.value)}
+                className={field}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-forest">Guests</label>
+              <select
+                value={guests}
+                onChange={(e) => setGuests(Number(e.target.value))}
+                className={field}
+              >
+                {Array.from({ length: maxSleeps }, (_, i) => i + 1).map((n) => (
+                  <option key={n} value={n}>
+                    {n} {n === 1 ? "guest" : "guests"}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-end">
+              {hasDates ? (
+                <p className="text-sm text-pine/80">
+                  <span className="font-medium text-forest">
+                    {freeCount} {freeCount === 1 ? "room" : "rooms"} free
+                  </span>
+                  <br />
+                  {prettyRange(checkIn, checkOut)} · {nights} {nights === 1 ? "night" : "nights"}
+                </p>
+              ) : (
+                <p className="text-sm text-pine/60">Rooms above show as you pick dates.</p>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
