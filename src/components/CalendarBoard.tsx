@@ -111,8 +111,12 @@ export function CalendarBoard({ rooms }: { rooms: RoomRef[] }) {
         days: daysInMonth(y, qm) + daysInMonth(y, qm + 1) + daysInMonth(y, qm + 2),
       };
     }
-    const leap = (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
-    return { start: new Date(y, 0, 1), days: leap ? 366 : 365 };
+    // Year view runs from the start of the anchor year through the end of the
+    // calendar year two years from today — e.g. on 1 Jan 2027 it ends 31 Dec 2029.
+    const start = new Date(y, 0, 1);
+    const end = new Date(new Date().getFullYear() + 2, 11, 31);
+    const days = Math.max(1, Math.round((end.getTime() - start.getTime()) / DAY) + 1);
+    return { start, days };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, anchorISO]);
 
@@ -163,9 +167,12 @@ export function CalendarBoard({ rooms }: { rooms: RoomRef[] }) {
     }
   }
 
+  const windowEndYear = addDays(windowStart, totalDays - 1).getFullYear();
   const rangeLabel =
     mode === "year"
-      ? String(windowStart.getFullYear())
+      ? windowStart.getFullYear() === windowEndYear
+        ? String(windowStart.getFullYear())
+        : `${windowStart.getFullYear()} – ${windowEndYear}`
       : mode === "quarter"
         ? `Q${Math.floor(windowStart.getMonth() / 3) + 1} ${windowStart.getFullYear()}`
         : mode === "month"
@@ -353,7 +360,7 @@ export function CalendarBoard({ rooms }: { rooms: RoomRef[] }) {
                   {monthSegs.map((s) => (
                     <div key={s.start} style={{ width: s.span * cellW }} className="shrink-0 border-l border-clay/30 py-2.5 pl-2 text-xs font-medium text-forest">
                       {s.date.toLocaleDateString("en-GB", { month: mode === "year" ? "short" : "long" })}
-                      {mode === "quarter" ? ` ${s.date.getFullYear()}` : ""}
+                      {mode === "quarter" || (mode === "year" && s.date.getMonth() === 0) ? ` ${s.date.getFullYear()}` : ""}
                     </div>
                   ))}
                 </div>
