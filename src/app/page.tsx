@@ -182,7 +182,7 @@ export default function Home() {
                 </div>
                 <div>
                   <dt className="text-clay">Parking</dt>
-                  <dd className="mt-1 text-pine/90">Free, in the carport and beside the house.</dd>
+                  <dd className="mt-1 text-pine/90">Free, in the driveway.</dd>
                 </div>
               </dl>
             </div>

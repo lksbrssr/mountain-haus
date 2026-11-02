@@ -35,19 +35,19 @@ export const houseInfo: InfoItem[] = [
     title: "Kitchen",
     emoji: "🍳",
     body:
-      "Help yourself to anything in the pantry and the coffee. Dishwasher tabs are under the sink. Start the dishwasher before bed so it's ready in the morning.",
+      "Help yourself to anything in the pantry and the coffee. Dishwasher tabs are under the sink.",
   },
   {
     title: "Rubbish & recycling",
     emoji: "♻️",
     body:
-      "Restmüll (grey) and Bio (brown) bins are by the carport; glass and paper go in the bins at the end of the lane. Collection is early Tuesday — bins out Monday night.",
+      "Restmüll (grey) and Bio (brown) bins are by the garage; glass and paper go in the bins at the end of the lane. Collection is early Tuesday — bins out Monday night.",
   },
   {
     title: "Parking",
     emoji: "🚗",
     body:
-      "Park in the carport or on the gravel beside the house. Leave room for the neighbours to pass. In winter, clear your windscreen on the far side so you don't block the turn.",
+      "Just park in the driveway — there's a garage, but no need to use it. Leave room for the neighbours to pass. In winter, clear your windscreen on the far side so you don't block the turn.",
   },
   {
     title: "Boots & gear",
