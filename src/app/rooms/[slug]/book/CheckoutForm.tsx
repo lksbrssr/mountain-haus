@@ -135,7 +135,7 @@ export function CheckoutForm({
           <select
             value={guests}
             onChange={(e) => setGuests(Number(e.target.value))}
-            className={field}
+            className="mt-2 block w-auto min-w-[9rem] rounded-xl border border-clay/40 bg-white px-4 py-3 text-forest outline-none transition focus:border-lake focus:ring-2 focus:ring-lake/30"
           >
             {Array.from({ length: sleeps }, (_, i) => i + 1).map((n) => (
               <option key={n} value={n}>
