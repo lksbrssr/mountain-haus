@@ -51,7 +51,7 @@ export default function Home() {
                 href="#rooms"
                 className="rounded-full border border-cream/40 px-6 py-3 text-sm font-medium text-cream transition hover:bg-cream/10"
               >
-                Everything's free →
+                Explore the rooms →
               </Link>
             </div>
           </div>
