@@ -9,6 +9,7 @@ export type Room = {
   view: string;
   amenities: string[];
   images: string[]; // leave empty [] to show a "photo coming soon" placeholder
+  underConstruction?: boolean; // true = shown but not bookable (work in progress)
 };
 
 // The four rooms of The Haus. Sizes are approximate, read off the original
@@ -66,6 +67,20 @@ export const rooms: Room[] = [
     view: "Garden",
     amenities: ["Ground floor", "Queen bed", "Garden access", "Steps from the kitchen", "Snug & quiet"],
     images: [],
+  },
+  {
+    slug: "attic",
+    name: "Attic",
+    short: "Right under the eaves — currently under construction.",
+    description:
+      "The top of the house, being brought back to life. Right now it's bare boards, fresh insulation and a lot of potential: a big dormer onto a little balcony, a skylight that throws afternoon sun across the floor, and the whole footprint of the roof to play with. Not ready for guests yet — check back once the dust has settled.",
+    sleeps: 2,
+    bed: "TBC",
+    size: "~20 m²",
+    view: "Eaves & skylight",
+    amenities: ["Dormer & balcony", "Skylight", "Under the eaves", "Top floor", "Coming soon"],
+    images: ["/rooms/attic-1.webp", "/rooms/attic-2.webp"],
+    underConstruction: true,
   },
 ];
 

@@ -7,7 +7,7 @@ import type { PublicReservation } from "@/lib/reservations";
 import { nightsBetween, prettyRange, rangesOverlap, maxBookingDateISO } from "@/lib/format";
 import { RoomImage } from "@/components/RoomImage";
 
-type Status = "idle" | "free" | "taken" | "toosmall";
+type Status = "idle" | "free" | "taken" | "toosmall" | "construction";
 
 export function AvailabilityExplorer({ rooms }: { rooms: Room[] }) {
   const today = new Date().toISOString().slice(0, 10);
@@ -29,6 +29,7 @@ export function AvailabilityExplorer({ rooms }: { rooms: Room[] }) {
   const maxSleeps = Math.max(...rooms.map((r) => r.sleeps));
 
   function statusFor(room: Room): Status {
+    if (room.underConstruction) return "construction";
     if (!hasDates) return "idle";
     if (room.sleeps < guests) return "toosmall";
     const taken = reservations.some(
@@ -64,7 +65,7 @@ export function AvailabilityExplorer({ rooms }: { rooms: Room[] }) {
         {rooms.map((room) => {
           const status = statusFor(room);
           const bookable = status === "free";
-          const dimmed = status === "taken" || status === "toosmall";
+          const dimmed = status === "taken" || status === "toosmall" || status === "construction";
           const href = bookable
             ? `/rooms/${room.slug}/book?${query}`
             : `/rooms/${room.slug}`;
@@ -104,6 +105,11 @@ export function AvailabilityExplorer({ rooms }: { rooms: Room[] }) {
                     Too small for {guests}
                   </span>
                 )}
+                {status === "construction" && (
+                  <span className="absolute right-4 top-4 z-10 rounded-full bg-clay px-3 py-1 text-xs font-medium text-cream">
+                    🚧 Under construction
+                  </span>
+                )}
               </div>
 
               <div className="flex items-start justify-between gap-4 p-6">
@@ -115,7 +121,7 @@ export function AvailabilityExplorer({ rooms }: { rooms: Room[] }) {
                   </p>
                 </div>
                 <span className="mt-1 shrink-0 text-sm text-forest transition group-hover:translate-x-1">
-                  {bookable ? "Request →" : "View →"}
+                  {bookable ? "Request →" : status === "construction" ? "Take a peek →" : "View →"}
                 </span>
               </div>
             </Link>
