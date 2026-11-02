@@ -249,11 +249,12 @@ export function CalendarBoard({ rooms }: { rooms: RoomRef[] }) {
       }
     }
     if (found) {
-      const guestLabel = found.guests > 1 ? ` +${found.guests - 1}` : "";
+      // Reveal the full booking name on hover (e.g. "Miles, Fifi & Wilda"),
+      // even though the bar itself only shows the first name to stay compact.
       setHover({
         x: e.clientX,
         y: e.clientY,
-        title: `${found.name}${guestLabel}`,
+        title: found.name,
         sub: `${prettyRange(found.checkIn, found.checkOut)} · ${found.guests} ${found.guests === 1 ? "guest" : "guests"}`,
       });
     } else if (hover) {
@@ -468,7 +469,7 @@ export function CalendarBoard({ rooms }: { rooms: RoomRef[] }) {
                           className={`pointer-events-none absolute z-[5] flex items-center overflow-hidden rounded-md px-2 text-xs font-medium ${ROOM_STYLES[ri % 4]} ${g.openL ? "rounded-l-none" : ""} ${g.openR ? "rounded-r-none" : ""}`}
                         >
                           <span className="truncate">
-                            {b.name}
+                            {b.name.split(/[\s,]+/)[0]}
                             {guestLabel}
                           </span>
                         </div>

@@ -1,7 +1,8 @@
 import { unstable_cache } from "next/cache";
 
 // Reads reservations back from the Google Sheet (via the Apps Script doGet).
-// Only non-sensitive fields are returned — first name, room, dates, guest count.
+// Only non-sensitive fields are returned — the booking name (as written on the
+// sheet, e.g. "Miles, Fifi & Wilda"), room, dates, guest count.
 // Email / phone / notes never leave the sheet.
 //
 // Apps Script web apps can be slow and very variable (1s … 40s+), so we:
@@ -36,7 +37,7 @@ async function fetchFromSheet(): Promise<PublicReservation[]> {
 
   return (data.reservations || [])
     .map((r: Record<string, unknown>) => ({
-      name: String(r.name ?? "Guest").trim().split(/\s+/)[0] || "Guest",
+      name: String(r.name ?? "Guest").trim().replace(/\s+/g, " ") || "Guest",
       room: String(r.room ?? ""),
       checkIn: String(r.checkIn ?? "").slice(0, 10),
       checkOut: String(r.checkOut ?? "").slice(0, 10),
