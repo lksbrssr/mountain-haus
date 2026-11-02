@@ -16,7 +16,7 @@ export default function BookPage({
   searchParams: { in?: string; out?: string; guests?: string };
 }) {
   const room = getRoom(params.slug);
-  if (!room) notFound();
+  if (!room || room.underConstruction) notFound();
 
   return (
     <main className="relative min-h-screen bg-sand/40">

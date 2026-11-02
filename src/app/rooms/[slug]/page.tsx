@@ -76,21 +76,36 @@ export default function RoomPage({ params }: { params: { slug: string } }) {
 
           {/* Booking card */}
           <aside className="md:col-span-2">
-            <div className="sticky top-6 rounded-3xl bg-cream p-7 shadow-soft">
-              <div className="flex items-baseline justify-between">
-                <span className="font-display text-3xl text-forest">Free</span>
-                <span className="text-sm text-clay">On the haus</span>
+            {room.underConstruction ? (
+              <div className="sticky top-6 rounded-3xl border border-clay/40 bg-sand/60 p-7 shadow-soft">
+                <div className="flex items-baseline justify-between">
+                  <span className="font-display text-3xl text-forest">🚧 Under construction</span>
+                </div>
+                <p className="mt-3 text-sm text-pine/80">
+                  The attic isn&apos;t ready for guests yet — it&apos;s a building site for now.
+                  Check back once the work&apos;s done and we&apos;ll open it up for stays.
+                </p>
+                <span className="mt-5 block cursor-not-allowed rounded-xl bg-clay/40 py-3 text-center font-medium text-cream/80">
+                  Not yet bookable
+                </span>
               </div>
-              <p className="mt-1 text-sm text-pine/80">
-                Our treat. Send a request and we'll confirm your dates.
-              </p>
-              <Link
-                href={`/rooms/${room.slug}/book`}
-                className="mt-5 block rounded-xl bg-forest py-3 text-center font-medium text-cream transition hover:bg-pine"
-              >
-                Request these dates
-              </Link>
-            </div>
+            ) : (
+              <div className="sticky top-6 rounded-3xl bg-cream p-7 shadow-soft">
+                <div className="flex items-baseline justify-between">
+                  <span className="font-display text-3xl text-forest">Free</span>
+                  <span className="text-sm text-clay">On the haus</span>
+                </div>
+                <p className="mt-1 text-sm text-pine/80">
+                  Our treat. Send a request and we'll confirm your dates.
+                </p>
+                <Link
+                  href={`/rooms/${room.slug}/book`}
+                  className="mt-5 block rounded-xl bg-forest py-3 text-center font-medium text-cream transition hover:bg-pine"
+                >
+                  Request these dates
+                </Link>
+              </div>
+            )}
           </aside>
         </div>
       </section>
