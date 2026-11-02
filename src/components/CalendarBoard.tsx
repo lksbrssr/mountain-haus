@@ -64,6 +64,7 @@ export function CalendarBoard({ rooms }: { rooms: RoomRef[] }) {
   const [loading, setLoading] = useState(true);
   const [sel, setSel] = useState<{ room: number; a: number; b: number } | null>(null);
   const [guests, setGuests] = useState(2);
+  const [hover, setHover] = useState<{ x: number; y: number; title: string; sub: string } | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [formError, setFormError] = useState<string | null>(null);
   const [name, setName] = useState("");
@@ -131,6 +132,21 @@ export function CalendarBoard({ rooms }: { rooms: RoomRef[] }) {
   const dayIndex = (iso: string) => Math.round((parse(iso).getTime() - windowStart.getTime()) / DAY);
   const todayIdx = dayIndex(todayISO);
   const days = Array.from({ length: totalDays }, (_, i) => addDays(windowStart, i));
+
+  // Hotel-style geometry: a stay runs midday→midday, so it occupies the second
+  // half of its check-in day and the first half of its check-out day. A
+  // changeover day (one stay ends, another begins) then reads as two half-cells
+  // with a gap between them — and its free half stays clickable, so you can book
+  // a room on the day another booking ends.
+  function barGeom(checkIn: string, checkOut: string) {
+    const rawS = dayIndex(checkIn);
+    const rawE = dayIndex(checkOut);
+    const openL = rawS < 0;
+    const openR = rawE >= totalDays;
+    const startPx = openL ? 0 : (rawS + 0.5) * cellW;
+    const endPx = openR ? totalDays * cellW : (rawE + 0.5) * cellW;
+    return { startPx, endPx, openL, openR, visible: endPx > startPx };
+  }
 
   const monthSegs = useMemo(() => {
     const segs: { start: number; span: number; date: Date }[] = [];
@@ -406,21 +422,34 @@ export function CalendarBoard({ rooms }: { rooms: RoomRef[] }) {
                   {/* booking bars */}
                   {lanes.map((lane, li) =>
                     lane.map((b) => {
-                      const s = Math.max(0, dayIndex(b.checkIn));
-                      const e = Math.min(totalDays, dayIndex(b.checkOut));
-                      if (e <= s) return null;
-                      const openL = dayIndex(b.checkIn) < 0;
-                      const openR = dayIndex(b.checkOut) > totalDays;
+                      const g = barGeom(b.checkIn, b.checkOut);
+                      if (!g.visible) return null;
+                      const insetL = g.openL ? 0 : 2;
+                      const insetR = g.openR ? 0 : 2;
+                      const guestLabel = b.guests > 1 ? ` +${b.guests - 1}` : "";
                       return (
                         <div
                           key={b.checkIn + b.name}
-                          title={`${b.name}${b.guests > 1 ? ` +${b.guests - 1}` : ""} · ${b.checkIn} → ${b.checkOut}`}
-                          style={{ left: s * cellW + 2, width: (e - s) * cellW - 4, top: li * laneH + 5, height: laneH - 6 }}
-                          className={`pointer-events-none absolute z-[5] flex items-center overflow-hidden rounded-md px-2 text-xs font-medium ${ROOM_STYLES[ri % 4]} ${openL ? "rounded-l-none" : ""} ${openR ? "rounded-r-none" : ""}`}
+                          onMouseEnter={(ev) =>
+                            !dragging.current &&
+                            setHover({
+                              x: ev.clientX,
+                              y: ev.clientY,
+                              title: `${b.name}${guestLabel}`,
+                              sub: `${prettyRange(b.checkIn, b.checkOut)} · ${b.guests} ${b.guests === 1 ? "guest" : "guests"}`,
+                            })
+                          }
+                          onMouseMove={(ev) =>
+                            !dragging.current &&
+                            setHover((h) => (h ? { ...h, x: ev.clientX, y: ev.clientY } : h))
+                          }
+                          onMouseLeave={() => setHover(null)}
+                          style={{ left: g.startPx + insetL, width: g.endPx - g.startPx - insetL - insetR, top: li * laneH + 5, height: laneH - 6 }}
+                          className={`absolute z-[5] flex cursor-help items-center overflow-hidden rounded-md px-2 text-xs font-medium ${ROOM_STYLES[ri % 4]} ${g.openL ? "rounded-l-none" : ""} ${g.openR ? "rounded-r-none" : ""}`}
                         >
                           <span className="truncate">
                             {b.name}
-                            {b.guests > 1 ? ` +${b.guests - 1}` : ""}
+                            {guestLabel}
                           </span>
                         </div>
                       );
@@ -429,15 +458,16 @@ export function CalendarBoard({ rooms }: { rooms: RoomRef[] }) {
 
                   {/* pending (cart) bars */}
                   {pending.map((c) => {
-                    const s = Math.max(0, dayIndex(c.checkIn));
-                    const e = Math.min(totalDays, dayIndex(c.checkOut));
-                    if (e <= s) return null;
+                    const g = barGeom(c.checkIn, c.checkOut);
+                    if (!g.visible) return null;
+                    const insetL = g.openL ? 0 : 2;
+                    const insetR = g.openR ? 0 : 2;
                     return (
                       <div
                         key={c.id}
-                        title={`Your request · ${c.checkIn} → ${c.checkOut}`}
-                        style={{ left: s * cellW + 2, width: (e - s) * cellW - 4, top: 5, height: laneH - 6 }}
-                        className={`pointer-events-none absolute z-[7] flex items-center justify-between gap-1 overflow-hidden rounded-md border-2 border-dashed ${ROOM_PENDING[ri % 4]}`}
+                        title={`Your request · ${prettyRange(c.checkIn, c.checkOut)}`}
+                        style={{ left: g.startPx + insetL, width: g.endPx - g.startPx - insetL - insetR, top: 5, height: laneH - 6 }}
+                        className={`pointer-events-none absolute z-[7] flex items-center justify-between gap-1 overflow-hidden rounded-md border-2 border-dashed ${ROOM_PENDING[ri % 4]} ${g.openL ? "rounded-l-none" : ""} ${g.openR ? "rounded-r-none" : ""}`}
                       >
                         <span className="truncate pl-1.5 text-[11px] font-semibold">Yours</span>
                         <button
@@ -595,6 +625,17 @@ export function CalendarBoard({ rooms }: { rooms: RoomRef[] }) {
             </button>
             <p className="mt-3 text-xs text-pine/60">These are requests, not confirmed bookings. We&apos;ll email you back.</p>
           </div>
+        </div>
+      )}
+
+      {/* Hover tooltip — who's booked a given stay */}
+      {hover && (
+        <div
+          className="pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-full rounded-lg bg-ink/90 px-3 py-2 shadow-lg"
+          style={{ left: hover.x, top: hover.y - 10 }}
+        >
+          <p className="text-sm font-medium leading-tight text-cream">{hover.title}</p>
+          <p className="mt-0.5 text-[11px] text-cream/75">{hover.sub}</p>
         </div>
       )}
     </div>
