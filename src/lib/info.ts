@@ -29,7 +29,7 @@ export const houseInfo: InfoItem[] = [
     title: "Heating",
     emoji: "🔥",
     body:
-      "Underfloor heating runs on the thermostat in the hallway — 21 °C is comfortable. For the wood stove in the Studio, there's dry wood in the shed; crack the flue before you light it.",
+      "Underfloor heating runs on the thermostat in the hallway — 21 °C is comfortable.",
   },
   {
     title: "Kitchen",

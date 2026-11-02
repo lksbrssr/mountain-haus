@@ -223,9 +223,42 @@ export function CalendarBoard({ rooms }: { rooms: RoomRef[] }) {
     }
   }
   function onMove(e: React.PointerEvent<HTMLDivElement>, ri: number) {
-    if (!dragging.current || !sel || sel.room !== ri) return;
-    const idx = idxFromX(e.clientX, e.currentTarget);
-    setSel((s) => (s ? { ...s, b: idx } : s));
+    if (dragging.current) {
+      if (!sel || sel.room !== ri) return;
+      const idx = idxFromX(e.clientX, e.currentTarget);
+      setSel((s) => (s ? { ...s, b: idx } : s));
+      return;
+    }
+    // Not dragging: detect the booking under the cursor and show a tooltip.
+    // Doing this on the row (rather than on the bars) keeps the bars
+    // non-interactive, so you can still start a selection on any day — even a
+    // day another stay checks out on.
+    if (e.pointerType !== "mouse") return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const lane = Math.floor((e.clientY - rect.top - 5) / laneH);
+    const laneBookings = lanesFor(rooms[ri])[lane];
+    let found: PublicReservation | undefined;
+    if (laneBookings) {
+      for (const b of laneBookings) {
+        const g = barGeom(b.checkIn, b.checkOut);
+        if (g.visible && x >= g.startPx && x <= g.endPx) {
+          found = b;
+          break;
+        }
+      }
+    }
+    if (found) {
+      const guestLabel = found.guests > 1 ? ` +${found.guests - 1}` : "";
+      setHover({
+        x: e.clientX,
+        y: e.clientY,
+        title: `${found.name}${guestLabel}`,
+        sub: `${prettyRange(found.checkIn, found.checkOut)} · ${found.guests} ${found.guests === 1 ? "guest" : "guests"}`,
+      });
+    } else if (hover) {
+      setHover(null);
+    }
   }
   function onUp(e: React.PointerEvent<HTMLDivElement>, ri: number) {
     if (e.pointerType !== "mouse" && touchDown.current?.room === ri) {
@@ -402,6 +435,7 @@ export function CalendarBoard({ rooms }: { rooms: RoomRef[] }) {
                   onPointerDown={(e) => onDown(e, ri)}
                   onPointerMove={(e) => onMove(e, ri)}
                   onPointerUp={(e) => onUp(e, ri)}
+                  onPointerLeave={() => !dragging.current && setHover(null)}
                 >
                   {cfg.header === "day" &&
                     days.map((d, i) =>
@@ -430,22 +464,8 @@ export function CalendarBoard({ rooms }: { rooms: RoomRef[] }) {
                       return (
                         <div
                           key={b.checkIn + b.name}
-                          onMouseEnter={(ev) =>
-                            !dragging.current &&
-                            setHover({
-                              x: ev.clientX,
-                              y: ev.clientY,
-                              title: `${b.name}${guestLabel}`,
-                              sub: `${prettyRange(b.checkIn, b.checkOut)} · ${b.guests} ${b.guests === 1 ? "guest" : "guests"}`,
-                            })
-                          }
-                          onMouseMove={(ev) =>
-                            !dragging.current &&
-                            setHover((h) => (h ? { ...h, x: ev.clientX, y: ev.clientY } : h))
-                          }
-                          onMouseLeave={() => setHover(null)}
                           style={{ left: g.startPx + insetL, width: g.endPx - g.startPx - insetL - insetR, top: li * laneH + 5, height: laneH - 6 }}
-                          className={`absolute z-[5] flex cursor-help items-center overflow-hidden rounded-md px-2 text-xs font-medium ${ROOM_STYLES[ri % 4]} ${g.openL ? "rounded-l-none" : ""} ${g.openR ? "rounded-r-none" : ""}`}
+                          className={`pointer-events-none absolute z-[5] flex items-center overflow-hidden rounded-md px-2 text-xs font-medium ${ROOM_STYLES[ri % 4]} ${g.openL ? "rounded-l-none" : ""} ${g.openR ? "rounded-r-none" : ""}`}
                         >
                           <span className="truncate">
                             {b.name}
@@ -485,18 +505,18 @@ export function CalendarBoard({ rooms }: { rooms: RoomRef[] }) {
                     );
                   })}
 
-                  {/* drag selection overlay */}
-                  {sel && sel.room === ri && (
-                    <div
-                      className={`pointer-events-none absolute z-[8] rounded-md border-2 border-dashed ${selInfo?.conflict ? "border-red-500 bg-red-500/10" : "border-forest bg-forest/15"}`}
-                      style={{
-                        left: Math.min(sel.a, sel.b) * cellW + 1,
-                        width: (Math.abs(sel.a - sel.b) + 1) * cellW - 2,
-                        top: 4,
-                        bottom: 4,
-                      }}
-                    />
-                  )}
+                  {/* drag selection overlay — drawn midday→midday like a real
+                      stay, so it's obvious you take the PM of your arrival day
+                      and only the AM of your departure day. */}
+                  {sel && sel.room === ri && selInfo && (() => {
+                    const g = barGeom(selInfo.checkIn, selInfo.checkOut);
+                    return (
+                      <div
+                        className={`pointer-events-none absolute z-[8] rounded-md border-2 border-dashed ${selInfo.conflict ? "border-red-500 bg-red-500/10" : "border-forest bg-forest/15"} ${g.openL ? "rounded-l-none" : ""} ${g.openR ? "rounded-r-none" : ""}`}
+                        style={{ left: g.startPx + 1, width: g.endPx - g.startPx - 2, top: 4, bottom: 4 }}
+                      />
+                    );
+                  })()}
                 </div>
               </div>
             );
