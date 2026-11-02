@@ -61,7 +61,7 @@ export function AvailabilityExplorer({ rooms }: { rooms: Room[] }) {
       </div>
 
       {/* Rooms */}
-      <div className="mt-10 grid gap-8 md:grid-cols-2">
+      <div className="mt-10 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
         {rooms.map((room) => {
           const status = statusFor(room);
           const bookable = status === "free";
