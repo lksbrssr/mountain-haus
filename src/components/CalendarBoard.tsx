@@ -54,12 +54,11 @@ const addDays = (d: Date, n: number) => {
   x.setDate(x.getDate() + n);
   return x;
 };
-const mondayOf = (d: Date) => addDays(d, -((d.getDay() + 6) % 7));
 const daysInMonth = (y: number, m: number) => new Date(y, m + 1, 0).getDate();
 
 export function CalendarBoard({ rooms }: { rooms: RoomRef[] }) {
   const [mode, setMode] = useState<Mode>("month");
-  const [anchorISO, setAnchorISO] = useState(toISO(new Date()));
+  const [viewIdx, setViewIdx] = useState(0);
   const [reservations, setReservations] = useState<PublicReservation[]>([]);
   const [loading, setLoading] = useState(true);
   const [sel, setSel] = useState<{ room: number; a: number; b: number } | null>(null);
@@ -76,6 +75,7 @@ export function CalendarBoard({ rooms }: { rooms: RoomRef[] }) {
   const dragging = useRef(false);
   const touchDown = useRef<{ room: number; idx: number } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const viewIdxRef = useRef(0);
 
   useEffect(() => {
     fetch("/api/reservations")
@@ -93,38 +93,17 @@ export function CalendarBoard({ rooms }: { rooms: RoomRef[] }) {
 
   const cfg = MODES.find((m) => m.key === mode)!;
   const cellW = cfg.cellW;
-  const anchor = parse(anchorISO);
   const todayISO = toISO(new Date());
   const todayStart = parse(todayISO);
   const labelW = 128;
   const laneH = 30;
 
-  const natural = useMemo(() => {
-    const y = anchor.getFullYear();
-    const mo = anchor.getMonth();
-    if (mode === "week") return { start: mondayOf(anchor), days: 7 };
-    if (mode === "fortnight") return { start: mondayOf(anchor), days: 14 };
-    if (mode === "month") return { start: new Date(y, mo, 1), days: daysInMonth(y, mo) };
-    if (mode === "quarter") {
-      const qm = Math.floor(mo / 3) * 3;
-      return {
-        start: new Date(y, qm, 1),
-        days: daysInMonth(y, qm) + daysInMonth(y, qm + 1) + daysInMonth(y, qm + 2),
-      };
-    }
-    // Year view runs from the start of the anchor year through the end of the
-    // calendar year two years from today — e.g. on 1 Jan 2027 it ends 31 Dec 2029.
-    const start = new Date(y, 0, 1);
-    const end = new Date(new Date().getFullYear() + 2, 11, 31);
-    const days = Math.max(1, Math.round((end.getTime() - start.getTime()) / DAY) + 1);
-    return { start, days };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, anchorISO]);
-
-  const atStart = natural.start.getTime() <= todayStart.getTime();
-  const windowStart = atStart ? todayStart : natural.start;
-  const skipped = atStart ? Math.round((todayStart.getTime() - natural.start.getTime()) / DAY) : 0;
-  const totalDays = Math.max(1, natural.days - skipped);
+  // Continuous timeline: one scrollable track from today through the furthest
+  // bookable day (two years out). Modes only change the zoom (cell width +
+  // header granularity); the arrows and "Today" button just pan this track.
+  const windowStart = todayStart;
+  const maxDate = parse(maxBookingDateISO());
+  const totalDays = Math.max(1, Math.round((maxDate.getTime() - windowStart.getTime()) / DAY) + 1);
 
   const windowStartISO = toISO(windowStart);
   const windowEndISO = toISO(addDays(windowStart, totalDays));
@@ -160,40 +139,49 @@ export function CalendarBoard({ rooms }: { rooms: RoomRef[] }) {
     }
     return segs;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, anchorISO, totalDays]);
+  }, [totalDays]);
 
+  // On a zoom change, keep the same date pinned to the left edge by rescaling
+  // the scroll offset to the new cell width.
   useEffect(() => {
     setSel(null);
     const el = scrollRef.current;
-    if (el)
-      el.scrollLeft =
-        todayIdx >= 0 && todayIdx < totalDays
-          ? Math.max(0, labelW + todayIdx * cellW - el.clientWidth / 2)
-          : 0;
+    if (el) el.scrollLeft = viewIdxRef.current * cellW;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, anchorISO, loading]);
+  }, [mode]);
 
-  function shift(dir: number) {
-    if (dir < 0 && atStart) return;
-    if (mode === "week") setAnchorISO(toISO(addDays(windowStart, dir * 7)));
-    else if (mode === "fortnight") setAnchorISO(toISO(addDays(windowStart, dir * 14)));
-    else {
-      const step = mode === "month" ? 1 : mode === "quarter" ? 3 : 12;
-      setAnchorISO(toISO(new Date(anchor.getFullYear(), anchor.getMonth() + dir * step, 1)));
-    }
+  function scrollToIdx(idx: number, smooth = true) {
+    const clamped = Math.max(0, Math.min(idx, totalDays - 1));
+    const el = scrollRef.current;
+    if (el) el.scrollTo({ left: clamped * cellW, behavior: smooth ? "smooth" : "auto" });
+    viewIdxRef.current = clamped;
+    setViewIdx(clamped);
   }
 
-  const windowEndYear = addDays(windowStart, totalDays - 1).getFullYear();
+  // Arrows jump by the current granularity, just panning the continuous track.
+  function shift(dir: number) {
+    const step =
+      mode === "week" ? 7 : mode === "fortnight" ? 14 : mode === "month" ? 30 : mode === "quarter" ? 91 : 365;
+    scrollToIdx(Math.max(0, viewIdxRef.current + dir * step));
+  }
+
+  function onScroll(e: React.UIEvent<HTMLDivElement>) {
+    const idx = Math.max(0, Math.round(e.currentTarget.scrollLeft / cellW));
+    viewIdxRef.current = idx;
+    setViewIdx(idx);
+  }
+
+  const atStart = viewIdx <= 0;
+  const viewDate = addDays(windowStart, Math.min(viewIdx, totalDays - 1));
+  const spanDays = mode === "week" ? 7 : 14;
   const rangeLabel =
     mode === "year"
-      ? windowStart.getFullYear() === windowEndYear
-        ? String(windowStart.getFullYear())
-        : `${windowStart.getFullYear()} – ${windowEndYear}`
+      ? String(viewDate.getFullYear())
       : mode === "quarter"
-        ? `Q${Math.floor(windowStart.getMonth() / 3) + 1} ${windowStart.getFullYear()}`
+        ? `Q${Math.floor(viewDate.getMonth() / 3) + 1} ${viewDate.getFullYear()}`
         : mode === "month"
-          ? windowStart.toLocaleDateString("en-GB", { month: "long", year: "numeric" })
-          : `${windowStart.toLocaleDateString("en-GB", { day: "numeric", month: "short" })} – ${addDays(windowStart, totalDays - 1).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`;
+          ? viewDate.toLocaleDateString("en-GB", { month: "long", year: "numeric" })
+          : `${viewDate.toLocaleDateString("en-GB", { day: "numeric", month: "short" })} – ${addDays(viewDate, spanDays - 1).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`;
 
   function lanesFor(room: RoomRef) {
     const inWin = reservations
@@ -285,7 +273,7 @@ export function CalendarBoard({ rooms }: { rooms: RoomRef[] }) {
     );
     return { room, checkIn, checkOut, nights, conflict: conflictExisting || conflictCart };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sel, anchorISO, mode, reservations, cart]);
+  }, [sel, reservations, cart]);
 
   function addToCart() {
     if (!selInfo) return;
@@ -371,7 +359,7 @@ export function CalendarBoard({ rooms }: { rooms: RoomRef[] }) {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-2">
           <button onClick={() => shift(-1)} disabled={atStart} className={`${btn} border border-clay/40 enabled:hover:bg-cream disabled:opacity-40`} aria-label="Previous">←</button>
-          <button onClick={() => setAnchorISO(todayISO)} className={`${btn} border border-clay/40 hover:bg-cream`}>Today</button>
+          <button onClick={() => scrollToIdx(0)} className={`${btn} border border-clay/40 hover:bg-cream`}>Today</button>
           <button onClick={() => shift(1)} className={`${btn} border border-clay/40 hover:bg-cream`} aria-label="Next">→</button>
           <span className="ml-2 font-display text-xl text-forest">{rangeLabel}</span>
         </div>
@@ -385,8 +373,15 @@ export function CalendarBoard({ rooms }: { rooms: RoomRef[] }) {
       </div>
 
       {/* Board */}
-      <div ref={scrollRef} className="mt-5 overflow-x-auto rounded-3xl border border-clay/30 bg-cream">
-        <div style={{ width: labelW + dayAreaW }} className="min-w-full">
+      <div ref={scrollRef} onScroll={onScroll} className="mt-5 overflow-x-auto rounded-3xl border border-clay/30 bg-cream">
+        <div style={{ width: labelW + dayAreaW }} className="relative min-w-full">
+          {/* Today marker — one vertical line spanning the whole timeline */}
+          {todayIdx >= 0 && todayIdx < totalDays && (
+            <div
+              className="pointer-events-none absolute top-0 bottom-0 z-[15] w-0.5 bg-lake"
+              style={{ left: labelW + todayIdx * cellW + (cfg.header === "day" ? cellW / 2 : 0) }}
+            />
+          )}
           {/* Header */}
           <div className="flex border-b border-clay/30">
             <div style={{ width: labelW }} className="sticky left-0 z-20 shrink-0 bg-cream p-3 text-xs uppercase tracking-wider text-clay">Room</div>
@@ -450,10 +445,6 @@ export function CalendarBoard({ rooms }: { rooms: RoomRef[] }) {
                         <div key={s.start} className="absolute top-0 bottom-0 w-px bg-clay/40" style={{ left: s.start * cellW }} />
                       ),
                     )}
-                  {todayIdx >= 0 && todayIdx < totalDays && (
-                    <div className="absolute top-0 bottom-0 z-10 w-0.5 bg-lake/70" style={{ left: todayIdx * cellW + (cfg.header === "day" ? cellW / 2 : 0) }} />
-                  )}
-
                   {/* booking bars */}
                   {lanes.map((lane, li) =>
                     lane.map((b) => {
