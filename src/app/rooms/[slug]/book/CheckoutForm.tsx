@@ -135,7 +135,13 @@ export function CheckoutForm({
           <select
             value={guests}
             onChange={(e) => setGuests(Number(e.target.value))}
-            className="mt-2 block w-auto min-w-[9rem] rounded-xl border border-clay/40 bg-white px-4 py-3 text-forest outline-none transition focus:border-lake focus:ring-2 focus:ring-lake/30"
+            className="mt-2 block w-auto min-w-[9rem] appearance-none rounded-xl border border-clay/40 bg-white bg-no-repeat py-3 pl-4 pr-11 text-forest outline-none transition focus:border-lake focus:ring-2 focus:ring-lake/30"
+            style={{
+              backgroundImage:
+                "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5' stroke='%2344584a' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E\")",
+              backgroundPosition: "right 1rem center",
+              backgroundSize: "12px 8px",
+            }}
           >
             {Array.from({ length: sleeps }, (_, i) => i + 1).map((n) => (
               <option key={n} value={n}>
@@ -243,7 +249,7 @@ export function CheckoutForm({
 
             <div className="mt-4 flex items-baseline justify-between border-t border-clay/30 pt-4">
               <span className="font-medium text-forest">Total</span>
-              <span className="font-display text-3xl text-forest">Free</span>
+              <span className="font-display text-3xl text-forest">Reservation</span>
             </div>
 
             {error && <p className="mt-4 text-sm text-red-600">{error}</p>}

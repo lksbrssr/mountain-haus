@@ -92,7 +92,7 @@ export default function RoomPage({ params }: { params: { slug: string } }) {
             ) : (
               <div className="sticky top-6 rounded-3xl bg-cream p-7 shadow-soft">
                 <div className="flex items-baseline justify-between">
-                  <span className="font-display text-3xl text-forest">Free</span>
+                  <span className="font-display text-3xl text-forest">Reservation</span>
                   <span className="text-sm text-clay">On the haus</span>
                 </div>
                 <p className="mt-1 text-sm text-pine/80">
@@ -102,7 +102,7 @@ export default function RoomPage({ params }: { params: { slug: string } }) {
                   href={`/rooms/${room.slug}/book`}
                   className="mt-5 block rounded-xl bg-forest py-3 text-center font-medium text-cream transition hover:bg-pine"
                 >
-                  Request these dates
+                  Make a booking
                 </Link>
               </div>
             )}
