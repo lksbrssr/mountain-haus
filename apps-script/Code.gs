@@ -21,6 +21,10 @@ var SECRET = "";
 // Where booking notifications go. Leave "" to disable.
 var NOTIFY_EMAIL = "carolinednoonan@gmail.com";
 
+// Blind-copy every guest confirmation to yourself so it lands in your inbox,
+// not just your Sent folder (the script sends as you). Leave "" to disable.
+var CONFIRMATION_BCC = "lksbrssr@gmail.com";
+
 // The Haus palette (matches the website).
 var C = {
   cream: "#f6f1e7", sand: "#e9dec9", clay: "#b9a37e",
@@ -65,7 +69,7 @@ function cardHtml(headline, intro, rows, reference) {
         (reference ? '<div style="margin-top:22px;display:inline-block;background:' + C.sand + ';color:' + C.forest + ';font:13px/1 Helvetica,Arial,sans-serif;letter-spacing:.08em;padding:9px 14px;border-radius:999px;">Ref ' + esc(reference) + '</div>' : '') +
       '</td></tr>' +
       '<tr><td style="background:#fff;border-radius:0 0 16px 16px;padding:18px 30px 26px;border-top:1px solid ' + C.sand + ';">' +
-        '<p style="margin:0;font:13px/1.6 Helvetica,Arial,sans-serif;color:' + C.pine + ';">Reitberg 16, 83735 Bayrischzell &middot; it\u2019s on us \uD83E\uDD0D</p>' +
+        '<p style="margin:0;font:13px/1.6 Helvetica,Arial,sans-serif;color:' + C.pine + ';">Reitberg 16, 83735 Bayrischzell \uD83E\uDD0D</p>' +
       '</td></tr>' +
     '</table>' +
   '</div>';
@@ -140,14 +144,16 @@ function notifyGuest(data, bookings) {
     " and we\u2019ll be in touch shortly to confirm. \uD83E\uDD0D";
   var html = cardHtml("You\u2019re on the list \uD83C\uDFD4\uFE0F", intro, rows, many ? "" : (bookings[0].reference || "\u2014"));
 
-  MailApp.sendEmail({
+  var opts = {
     to: data.email,
     subject: subject,
     body: plain,
     htmlBody: html,
     name: "The Haus",
     replyTo: NOTIFY_EMAIL || data.email,
-  });
+  };
+  if (CONFIRMATION_BCC) opts.bcc = CONFIRMATION_BCC;
+  MailApp.sendEmail(opts);
 }
 
 function doPost(e) {
