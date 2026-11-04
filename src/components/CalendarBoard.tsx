@@ -539,11 +539,11 @@ export function CalendarBoard({ rooms }: { rooms: RoomRef[] }) {
                 <select
                   value={Math.min(guests, selInfo.room.sleeps)}
                   onChange={(e) => setGuests(Number(e.target.value))}
-                  className="ml-1 appearance-none rounded-lg border border-clay/40 bg-white bg-no-repeat py-1.5 pl-2 pr-7 text-forest outline-none"
+                  className="ml-1 appearance-none rounded-lg border border-clay/40 bg-white bg-no-repeat py-1.5 pl-2 pr-9 text-forest outline-none"
                   style={{
                     backgroundImage:
                       "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5' stroke='%2344584a' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E\")",
-                    backgroundPosition: "right 0.6rem center",
+                    backgroundPosition: "right 1.3rem center",
                     backgroundSize: "10px 7px",
                   }}
                 >
