@@ -243,7 +243,7 @@ export function CheckoutForm({
 
             <div className="mt-4 flex items-baseline justify-between border-t border-clay/30 pt-4">
               <span className="font-medium text-forest">Total</span>
-              <span className="font-display text-3xl text-forest">Free</span>
+              <span className="font-display text-3xl text-forest">Reservation</span>
             </div>
 
             {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
