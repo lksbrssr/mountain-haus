@@ -102,7 +102,7 @@ export default function RoomPage({ params }: { params: { slug: string } }) {
                   href={`/rooms/${room.slug}/book`}
                   className="mt-5 block rounded-xl bg-forest py-3 text-center font-medium text-cream transition hover:bg-pine"
                 >
-                  Request these dates
+                  Make a booking
                 </Link>
               </div>
             )}
