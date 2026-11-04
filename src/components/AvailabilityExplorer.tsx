@@ -4,17 +4,15 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { Room } from "@/lib/rooms";
 import type { PublicReservation } from "@/lib/reservations";
-import { nightsBetween, prettyRange, rangesOverlap, maxBookingDateISO } from "@/lib/format";
+import { nightsBetween, rangesOverlap } from "@/lib/format";
 import { RoomImage } from "@/components/RoomImage";
 
 type Status = "idle" | "free" | "taken" | "toosmall" | "construction";
 
 export function AvailabilityExplorer({ rooms }: { rooms: Room[] }) {
-  const today = new Date().toISOString().slice(0, 10);
-  const maxDate = maxBookingDateISO();
-  const [checkIn, setCheckIn] = useState("");
-  const [checkOut, setCheckOut] = useState("");
-  const [guests, setGuests] = useState(2);
+  const [checkIn] = useState("");
+  const [checkOut] = useState("");
+  const [guests] = useState(2);
   const [reservations, setReservations] = useState<PublicReservation[]>([]);
 
   useEffect(() => {
@@ -26,7 +24,6 @@ export function AvailabilityExplorer({ rooms }: { rooms: Room[] }) {
 
   const nights = useMemo(() => nightsBetween(checkIn, checkOut), [checkIn, checkOut]);
   const hasDates = nights > 0;
-  const maxSleeps = Math.max(...rooms.map((r) => r.sleeps));
 
   function statusFor(room: Room): Status {
     if (room.underConstruction) return "construction";
@@ -39,10 +36,6 @@ export function AvailabilityExplorer({ rooms }: { rooms: Room[] }) {
   }
 
   const query = new URLSearchParams({ in: checkIn, out: checkOut, guests: String(guests) }).toString();
-  const freeCount = hasDates ? rooms.filter((r) => statusFor(r) === "free").length : 0;
-
-  const field =
-    "mt-2 w-full rounded-xl border border-clay/40 bg-white px-4 py-3 text-forest outline-none transition focus:border-lake focus:ring-2 focus:ring-lake/30";
 
   return (
     <div className="mx-auto max-w-6xl px-6">
@@ -127,70 +120,6 @@ export function AvailabilityExplorer({ rooms }: { rooms: Room[] }) {
             </Link>
           );
         })}
-      </div>
-
-      {/* Date search — pick dates to check availability */}
-      <div className="mt-14">
-        <p className="font-sans text-sm uppercase tracking-[0.25em] text-clay">Plan your stay</p>
-        <h3 className="mt-2 font-display text-3xl text-forest">When would you like to come?</h3>
-        <p className="mt-3 max-w-xl text-pine/90">
-          Pick your dates and the rooms above show what&apos;s free. It&apos;s a request, not a
-          payment — we&apos;ll confirm by email.
-        </p>
-
-        <div className="mt-6 rounded-3xl bg-cream p-6 shadow-soft">
-          <div className="grid gap-4 sm:grid-cols-4">
-            <div>
-              <label className="text-sm font-medium text-forest">Check in</label>
-              <input
-                type="date"
-                min={today}
-                max={maxDate}
-                value={checkIn}
-                onChange={(e) => setCheckIn(e.target.value)}
-                className={field}
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium text-forest">Check out</label>
-              <input
-                type="date"
-                min={checkIn || today}
-                max={maxDate}
-                value={checkOut}
-                onChange={(e) => setCheckOut(e.target.value)}
-                className={field}
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium text-forest">Guests</label>
-              <select
-                value={guests}
-                onChange={(e) => setGuests(Number(e.target.value))}
-                className={field}
-              >
-                {Array.from({ length: maxSleeps }, (_, i) => i + 1).map((n) => (
-                  <option key={n} value={n}>
-                    {n} {n === 1 ? "guest" : "guests"}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex items-end">
-              {hasDates ? (
-                <p className="text-sm text-pine/80">
-                  <span className="font-medium text-forest">
-                    {freeCount} {freeCount === 1 ? "room" : "rooms"} free
-                  </span>
-                  <br />
-                  {prettyRange(checkIn, checkOut)} · {nights} {nights === 1 ? "night" : "nights"}
-                </p>
-              ) : (
-                <p className="text-sm text-pine/60">Rooms above show as you pick dates.</p>
-              )}
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );
