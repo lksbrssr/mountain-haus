@@ -93,6 +93,18 @@ export const shoppingItems: ShopItem[] = [
     source: "sonos.com",
   },
   {
+    name: "Bettschlange",
+    brand: "dear april · D14, L175",
+    category: "Kids",
+    price: 59,
+    status: "planned",
+    image: "/shopping/bettschlange.jpg",
+    blurb:
+      "Soft knotted bed bumper — a cosy edge for the kids' beds in the bunk room.",
+    link: "https://www.bettenrid.de/dear-april-bettschlange.html?varID=2e96e46b124b91a5ca184e3209942190",
+    source: "bettenrid.de",
+  },
+  {
     name: "Edelstahl Schuhtrockner · 5 Paar",
     brand: "Paroli · Stainless steel (INOX)",
     category: "Boot room",
