@@ -98,7 +98,7 @@ export const shoppingItems: ShopItem[] = [
     category: "Boot room",
     price: 916.8,
     status: "planned",
-    image: "/shopping/dryer.png",
+    image: "/shopping/dryer-5pair.png",
     blurb:
       "Wall-mounted stainless-steel boot & shoe dryer for five pairs — warm, dry boots after every ski day.",
     link: "https://paroli.info/shop-edelstahl-trockner/",

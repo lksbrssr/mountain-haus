@@ -12,12 +12,53 @@ function formatEuro(n: number) {
   }).format(n);
 }
 
+type Vote = "up" | "down" | null;
+type UiStatus = "planned" | "bought" | "skip";
+
+const STATUS_LABEL: Record<UiStatus, string> = {
+  planned: "Planned",
+  bought: "Bought",
+  skip: "Not planned",
+};
+const NEXT_STATUS: Record<UiStatus, UiStatus> = {
+  planned: "bought",
+  bought: "skip",
+  skip: "planned",
+};
+
 export function ShoppingClient({ items }: { items: ShopItem[] }) {
   const [showPrices, setShowPrices] = useState(true);
+  const [votes, setVotes] = useState<Record<string, Vote>>({});
+  const [statuses, setStatuses] = useState<Record<string, UiStatus>>(() =>
+    Object.fromEntries(items.map((i) => [i.name, i.status])),
+  );
 
+  function cycleStatus(e: React.MouseEvent, name: string) {
+    e.preventDefault();
+    e.stopPropagation();
+    setStatuses((prev) => {
+      const current = prev[name] ?? "planned";
+      return { ...prev, [name]: NEXT_STATUS[current] };
+    });
+  }
+
+  function castVote(
+    e: React.MouseEvent,
+    name: string,
+    dir: "up" | "down",
+  ) {
+    // Keep the surrounding <a> from navigating to the source.
+    e.preventDefault();
+    e.stopPropagation();
+    setVotes((prev) => ({ ...prev, [name]: prev[name] === dir ? null : dir }));
+  }
+
+  const statusOf = (name: string): UiStatus => statuses[name] ?? "planned";
   const known = items.filter((i) => i.price != null);
   const total = known.reduce((sum, i) => sum + (i.price ?? 0), 0);
-  const boughtCount = items.filter((i) => i.status === "bought").length;
+  const boughtCount = items.filter((i) => statusOf(i.name) === "bought").length;
+  const skipCount = items.filter((i) => statusOf(i.name) === "skip").length;
+  const plannedCount = items.length - boughtCount - skipCount;
 
   return (
     <>
@@ -39,7 +80,8 @@ export function ShoppingClient({ items }: { items: ShopItem[] }) {
             {items.length} items
           </span>
           <span className="rounded-full border border-clay/30 bg-cream px-4 py-2 text-pine">
-            {boughtCount} bought · {items.length - boughtCount} planned
+            {boughtCount} bought · {plannedCount} planned
+            {skipCount > 0 ? ` · ${skipCount} skipped` : ""}
           </span>
           {showPrices && (
             <span className="rounded-full bg-forest px-4 py-2 font-medium text-cream">
@@ -83,23 +125,58 @@ export function ShoppingClient({ items }: { items: ShopItem[] }) {
                 rel="noopener noreferrer"
                 className="group flex flex-col overflow-hidden rounded-3xl border border-clay/25 bg-cream transition hover:-translate-y-1 hover:shadow-soft"
               >
-                <div className="relative aspect-[4/3] w-full overflow-hidden bg-white">
-                  <Image
-                    src={item.image}
-                    alt={item.name}
-                    fill
-                    sizes="(min-width: 1024px) 360px, (min-width: 640px) 50vw, 90vw"
-                    className="object-contain p-4 transition duration-500 group-hover:scale-[1.04]"
-                  />
-                  <span
-                    className={`absolute left-4 top-4 rounded-full px-3 py-1 text-xs font-medium ${
-                      item.status === "bought"
-                        ? "bg-lake text-cream"
-                        : "bg-cream/90 text-forest ring-1 ring-clay/30"
-                    }`}
-                  >
-                    {item.status === "bought" ? "Bought" : "Planned"}
-                  </span>
+                {/* Wrapper is NOT clipped, so the vote pill can hang below the image */}
+                <div className="relative">
+                  <div className="relative aspect-[4/3] w-full overflow-hidden rounded-t-3xl bg-white">
+                    <Image
+                      src={item.image}
+                      alt={item.name}
+                      fill
+                      sizes="(min-width: 1024px) 360px, (min-width: 640px) 50vw, 90vw"
+                      className="object-contain p-4 transition duration-500 group-hover:scale-[1.04]"
+                    />
+                    <button
+                      type="button"
+                      onClick={(e) => cycleStatus(e, item.name)}
+                      title="Tap to change status"
+                      className={`absolute left-4 top-4 rounded-full px-3 py-1 text-xs font-medium transition hover:scale-105 ${
+                        statusOf(item.name) === "bought"
+                          ? "bg-lake text-cream"
+                          : statusOf(item.name) === "skip"
+                            ? "bg-ink/70 text-cream"
+                            : "bg-cream/90 text-forest ring-1 ring-clay/30"
+                      }`}
+                    >
+                      {STATUS_LABEL[statusOf(item.name)]}
+                    </button>
+                  </div>
+
+                  {/* Vote pill — sits at the image's bottom-right, 35% of its
+                      height protruding below the image edge. */}
+                  <div className="absolute bottom-0 right-4 flex translate-y-[35%] items-center gap-1 rounded-full border border-clay/25 bg-cream p-1 shadow-soft">
+                    <button
+                      type="button"
+                      aria-label="Thumbs up"
+                      aria-pressed={votes[item.name] === "up"}
+                      onClick={(e) => castVote(e, item.name, "up")}
+                      className={`flex h-9 w-9 items-center justify-center rounded-full text-lg leading-none transition hover:scale-110 ${
+                        votes[item.name] === "up" ? "bg-lake/20" : "opacity-55 hover:opacity-100"
+                      }`}
+                    >
+                      👍
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Thumbs down"
+                      aria-pressed={votes[item.name] === "down"}
+                      onClick={(e) => castVote(e, item.name, "down")}
+                      className={`flex h-9 w-9 items-center justify-center rounded-full text-lg leading-none transition hover:scale-110 ${
+                        votes[item.name] === "down" ? "bg-clay/25" : "opacity-55 hover:opacity-100"
+                      }`}
+                    >
+                      👎
+                    </button>
+                  </div>
                 </div>
 
                 <div className="flex flex-1 flex-col p-6">
