@@ -177,6 +177,12 @@ export function ShoppingClient({ items }: { items: ShopItem[] }) {
         setVotes(data),
       )
       .catch(() => {});
+    fetch(`${API}/api/status`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((data: Record<string, UiStatus>) =>
+        setStatuses((prev) => ({ ...prev, ...data })),
+      )
+      .catch(() => {});
   }, []);
 
   // Cache comments locally so they appear instantly on the next visit.
@@ -225,11 +231,25 @@ export function ShoppingClient({ items }: { items: ShopItem[] }) {
     setOpenMenu((prev) => (prev === name ? null : name));
   }
 
-  function setStatus(e: React.MouseEvent, name: string, status: UiStatus) {
+  async function setStatus(
+    e: React.MouseEvent,
+    name: string,
+    status: UiStatus,
+  ) {
     e.preventDefault();
     e.stopPropagation();
     setStatuses((prev) => ({ ...prev, [name]: status }));
     setOpenMenu(null);
+    if (!API) return;
+    try {
+      await fetch(`${API}/api/status`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ item: name, status }),
+      });
+    } catch {
+      /* keep the optimistic value; next load reconciles */
+    }
   }
 
   function votesFor(name: string): { up: string[]; down: string[] } {

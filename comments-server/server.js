@@ -12,6 +12,7 @@ const DATA_DIR = process.env.DATA_DIR || "/data";
 const DATA_FILE = path.join(DATA_DIR, "comments.json");
 const PRICES_FILE = path.join(DATA_DIR, "prices.json");
 const VOTES_FILE = path.join(DATA_DIR, "votes.json");
+const STATUS_FILE = path.join(DATA_DIR, "status.json");
 const PORT = Number(process.env.PORT || 8080);
 const MAX_BODY = 14 * 1024 * 1024; // 14 MB — comment images arrive as data URLs
 
@@ -65,6 +66,26 @@ function persistVotes() {
   return writingVotes;
 }
 
+function loadStatus() {
+  try {
+    return JSON.parse(fs.readFileSync(STATUS_FILE, "utf8"));
+  } catch {
+    return {};
+  }
+}
+
+// Status overrides: { [itemName]: "planned" | "bought" | "got" | "skip" }
+const STATUS_VALUES = ["planned", "bought", "got", "skip"];
+let status = loadStatus();
+let writingStatus = Promise.resolve();
+function persistStatus() {
+  const snapshot = JSON.stringify(status);
+  writingStatus = writingStatus
+    .then(() => fs.promises.writeFile(STATUS_FILE, snapshot))
+    .catch((e) => console.error("persist status failed:", e));
+  return writingStatus;
+}
+
 // Serialize writes so concurrent posts can't clobber the file.
 let writing = Promise.resolve();
 function persist() {
@@ -112,6 +133,7 @@ const server = http.createServer((req, res) => {
       ok: true,
       count: comments.length,
       priceOverrides: Object.keys(prices).length,
+      statusOverrides: Object.keys(status).length,
     });
   }
 
@@ -125,6 +147,44 @@ const server = http.createServer((req, res) => {
 
   if (req.method === "GET" && url.pathname === "/api/votes") {
     return send(res, 200, votes);
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/status") {
+    return send(res, 200, status);
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/status") {
+    const chunks = [];
+    let size = 0;
+    let aborted = false;
+    req.on("data", (c) => {
+      size += c.length;
+      if (size > 1024 * 64) {
+        aborted = true;
+        send(res, 413, { error: "too large" });
+        req.destroy();
+        return;
+      }
+      chunks.push(c);
+    });
+    req.on("end", () => {
+      if (aborted) return;
+      let body;
+      try {
+        body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+      } catch {
+        return send(res, 400, { error: "bad json" });
+      }
+      const item = String(body.item || "").slice(0, 300).trim();
+      const value = String(body.status || "");
+      if (!item) return send(res, 400, { error: "item required" });
+      if (!STATUS_VALUES.includes(value))
+        return send(res, 400, { error: "bad status" });
+      status[item] = value;
+      persistStatus();
+      return send(res, 200, { item, status: value });
+    });
+    return;
   }
 
   if (req.method === "POST" && url.pathname === "/api/votes") {
