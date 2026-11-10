@@ -153,14 +153,14 @@ export function ShoppingClient({ items }: { items: ShopItem[] }) {
 
                   {/* Vote pill — sits at the image's bottom-right, 35% of its
                       height protruding below the image edge. */}
-                  <div className="absolute bottom-0 right-4 flex translate-y-[35%] items-center gap-1 rounded-full border border-clay/25 bg-cream p-1 shadow-soft">
+                  <div className="absolute bottom-0 right-4 flex translate-y-[35%] items-center gap-1.5">
                     <button
                       type="button"
                       aria-label="Thumbs up"
                       aria-pressed={votes[item.name] === "up"}
                       onClick={(e) => castVote(e, item.name, "up")}
-                      className={`flex h-9 w-9 items-center justify-center rounded-full text-lg leading-none transition hover:scale-110 ${
-                        votes[item.name] === "up" ? "bg-lake/20" : "opacity-55 hover:opacity-100"
+                      className={`flex h-[1.9rem] w-[1.9rem] items-center justify-center rounded-full border border-clay/20 text-[0.95rem] leading-none shadow-soft transition hover:scale-110 ${
+                        votes[item.name] === "up" ? "bg-lake/20" : "bg-cream opacity-80 hover:opacity-100"
                       }`}
                     >
                       👍
@@ -170,8 +170,8 @@ export function ShoppingClient({ items }: { items: ShopItem[] }) {
                       aria-label="Thumbs down"
                       aria-pressed={votes[item.name] === "down"}
                       onClick={(e) => castVote(e, item.name, "down")}
-                      className={`flex h-9 w-9 items-center justify-center rounded-full text-lg leading-none transition hover:scale-110 ${
-                        votes[item.name] === "down" ? "bg-clay/25" : "opacity-55 hover:opacity-100"
+                      className={`flex h-[1.9rem] w-[1.9rem] items-center justify-center rounded-full border border-clay/20 text-[0.95rem] leading-none shadow-soft transition hover:scale-110 ${
+                        votes[item.name] === "down" ? "bg-clay/25" : "bg-cream opacity-80 hover:opacity-100"
                       }`}
                     >
                       👎
