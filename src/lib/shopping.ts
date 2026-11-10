@@ -93,6 +93,18 @@ export const shoppingItems: ShopItem[] = [
     source: "sonos.com",
   },
   {
+    name: "Hüpfsofa Cord · Rosé",
+    brand: "Ehrenkind · 2-in-1 play sofa",
+    category: "Kids",
+    price: 399.9,
+    status: "planned",
+    image: "/shopping/huepfsofa.jpg",
+    blurb:
+      "Corduroy play sofa that turns into jumping cushions — endless rainy-day fort-building for the kids.",
+    link: "https://www.ehrenkind.de/products/huepfsofa-cord?variant=55017364226424",
+    source: "ehrenkind.de",
+  },
+  {
     name: "Bettschlange",
     brand: "dear april · D14, L175",
     category: "Kids",
