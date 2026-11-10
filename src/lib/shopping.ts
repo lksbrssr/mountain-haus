@@ -81,6 +81,18 @@ export const shoppingItems: ShopItem[] = [
     source: "miele.de",
   },
   {
+    name: "Polsterbett Almeno",
+    brand: "Grüne Erde · Massivholz & Wollstoff",
+    category: "Furniture",
+    price: 3398,
+    status: "planned",
+    image: "/shopping/almeno-bett.jpg",
+    blurb:
+      "Solid-wood bed with a softly upholstered, slightly reclined headboard — hand-upholstered in wool, metal-free joinery. A calm main bed for the master room (frame only; slats & mattress extra).",
+    link: "https://www.grueneerde.com/de-de/p/polsterbett-almeno/ge-p-693306",
+    source: "grueneerde.com",
+  },
+  {
     name: "Etagenbett Hoch · Buche",
     brand: "Ehrenkind · Massivholz, 170 cm",
     category: "Furniture",
