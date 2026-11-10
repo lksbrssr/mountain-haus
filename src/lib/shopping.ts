@@ -189,6 +189,18 @@ export const shoppingItems: ShopItem[] = [
     source: "evelyn-kahle.de",
   },
   {
+    name: "LST2 Tischleuchte",
+    brand: "WOKA Lamps Vienna · Adolf Loos zugeschrieben",
+    category: "Lighting",
+    price: 5150,
+    status: "planned",
+    image: "/shopping/woka-loos-lamp.jpg",
+    blurb:
+      "Table lamp with opal glass dome on a nickel base — a reissue of a design attributed to Adolf Loos for the Villa Steiner. A quiet piece of Viennese modernism for the haus.",
+    link: "https://www.woka.com/de/katalog/lst2-24/",
+    source: "woka.com",
+  },
+  {
     name: "Tolomeo Tavolo Schreibtischleuchte",
     brand: "Artemide · Design classic since 1987",
     category: "Lighting",
