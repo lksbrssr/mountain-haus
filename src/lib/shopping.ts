@@ -141,6 +141,18 @@ export const shoppingItems: ShopItem[] = [
     source: "paroli.info",
   },
   {
+    name: "Big Green Egg Large Starterset",
+    brand: "Big Green Egg · Kamado Keramikgrill",
+    category: "Outdoor",
+    price: 2399,
+    status: "planned",
+    image: "/shopping/big-green-egg.jpg",
+    blurb:
+      "The iconic ceramic kamado grill — smoke, roast or sear for 7–10 people. Starter set with Dual Zone deflector kit and cast-iron grate for long evenings on the terrace.",
+    link: "https://www.kamdi24.de/big-green-egg-keramikgrill-large-starterset",
+    source: "kamdi24.de",
+  },
+  {
     name: "La Pavoni Professional Lusso",
     brand: "La Pavoni · Lever espresso machine",
     category: "Kitchen",
