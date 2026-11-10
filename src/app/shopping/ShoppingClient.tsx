@@ -113,7 +113,7 @@ function statusPillClass(s: UiStatus): string {
 
 export function ShoppingClient({ items }: { items: ShopItem[] }) {
   const [showPrices, setShowPrices] = useState(false);
-  const [editMode, setEditMode] = useState(false);
+  const [editingPrice, setEditingPrice] = useState(false);
   const [priceOverrides, setPriceOverrides] = useState<
     Record<string, number | null>
   >({});
@@ -135,6 +135,7 @@ export function ShoppingClient({ items }: { items: ShopItem[] }) {
   const [identity, setIdentity] = useState("");
   const [nameDraft, setNameDraft] = useState("");
   const [editingName, setEditingName] = useState(false);
+  const [commentNameEdit, setCommentNameEdit] = useState(false);
 
   // Close the status dropdown on any outside click (option/toggle clicks
   // stopPropagation, so they won't trigger this).
@@ -197,6 +198,11 @@ export function ShoppingClient({ items }: { items: ShopItem[] }) {
       /* ignore */
     }
   }
+
+  // Reset per-item price editing whenever the open item changes.
+  useEffect(() => {
+    setEditingPrice(false);
+  }, [openItem]);
 
   // Close the modal on Escape; lock background scroll while it's open.
   useEffect(() => {
@@ -317,7 +323,7 @@ export function ShoppingClient({ items }: { items: ShopItem[] }) {
     const text = draftText.trim();
     if (!text && draftImages.length === 0) return;
     if (!identity) {
-      setEditingName(true);
+      setCommentNameEdit(true);
       return;
     }
     const item = openItem.name;
@@ -375,7 +381,6 @@ export function ShoppingClient({ items }: { items: ShopItem[] }) {
   const statusOf = (name: string): UiStatus => statuses[name] ?? "planned";
   const priceOf = (item: ShopItem): number | null =>
     item.name in priceOverrides ? priceOverrides[item.name] : item.price;
-  const pricesVisible = showPrices || editMode;
   const known = items.filter((i) => priceOf(i) != null);
   const total = known.reduce((sum, i) => sum + (priceOf(i) ?? 0), 0);
   const boughtCount = items.filter((i) => statusOf(i.name) === "bought").length;
@@ -449,24 +454,11 @@ export function ShoppingClient({ items }: { items: ShopItem[] }) {
             {gotCount > 0 ? ` · ${gotCount} got` : ""}
             {skipCount > 0 ? ` · ${skipCount} skipped` : ""}
           </span>
-          {pricesVisible && (
+          {showPrices && (
             <span className="rounded-full bg-forest px-4 py-2 font-medium text-cream">
               {formatEuro(total)} total
             </span>
           )}
-
-          {/* Edit prices toggle */}
-          <button
-            type="button"
-            onClick={() => setEditMode((v) => !v)}
-            className={`ml-auto flex items-center gap-2 rounded-full border px-4 py-2 transition ${
-              editMode
-                ? "border-forest bg-forest text-cream"
-                : "border-clay/30 bg-cream text-pine hover:border-forest/40"
-            }`}
-          >
-            {editMode ? "✓ Done editing" : "✏️ Edit prices"}
-          </button>
 
           {/* Price toggle */}
           <button
@@ -474,7 +466,7 @@ export function ShoppingClient({ items }: { items: ShopItem[] }) {
             role="switch"
             aria-checked={showPrices}
             onClick={() => setShowPrices((v) => !v)}
-            className="flex items-center gap-2.5 rounded-full border border-clay/30 bg-cream px-4 py-2 text-pine transition hover:border-forest/40"
+            className="ml-auto flex items-center gap-2.5 rounded-full border border-clay/30 bg-cream px-4 py-2 text-pine transition hover:border-forest/40"
           >
             <span>Show prices</span>
             <span
@@ -642,35 +634,7 @@ export function ShoppingClient({ items }: { items: ShopItem[] }) {
 
                   <div className="mt-5 flex items-end justify-between">
                     <div>
-                      {editMode ? (
-                        <div
-                          onClick={(e) => e.stopPropagation()}
-                          onKeyDown={(e) => e.stopPropagation()}
-                        >
-                          <div className="flex items-center gap-1">
-                            <input
-                              key={String(priceOf(item))}
-                              type="text"
-                              inputMode="decimal"
-                              defaultValue={
-                                priceOf(item) != null ? String(priceOf(item)) : ""
-                              }
-                              onBlur={(e) => savePrice(item.name, e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") {
-                                  e.preventDefault();
-                                  (e.target as HTMLInputElement).blur();
-                                }
-                              }}
-                              placeholder="TBD"
-                              className="w-24 rounded-lg border border-clay/40 bg-white px-2 py-1 font-display text-lg text-forest outline-none focus:border-forest"
-                            />
-                            <span className="font-display text-lg text-pine/70">
-                              €
-                            </span>
-                          </div>
-                        </div>
-                      ) : pricesVisible ? (
+                      {showPrices ? (
                         priceOf(item) != null ? (
                           <p className="font-display text-2xl text-forest">
                             {formatEuro(priceOf(item)!)}
@@ -754,17 +718,55 @@ export function ShoppingClient({ items }: { items: ShopItem[] }) {
                 </p>
                 <div className="mt-5 flex items-center justify-between">
                   <div>
-                    {priceOf(openItem) != null ? (
-                      <p className="font-display text-2xl text-forest">
-                        {formatEuro(priceOf(openItem)!)}
-                        {openItem.priceNote ? (
-                          <span className="ml-1 font-sans text-sm text-pine/70">
-                            {openItem.priceNote}
-                          </span>
-                        ) : null}
-                      </p>
+                    {editingPrice ? (
+                      <div className="flex items-center gap-1">
+                        <input
+                          autoFocus
+                          type="text"
+                          inputMode="decimal"
+                          defaultValue={
+                            priceOf(openItem) != null
+                              ? String(priceOf(openItem))
+                              : ""
+                          }
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              (e.target as HTMLInputElement).blur();
+                            }
+                          }}
+                          onBlur={(e) => {
+                            savePrice(openItem.name, e.target.value);
+                            setEditingPrice(false);
+                          }}
+                          placeholder="TBD"
+                          className="w-28 rounded-lg border border-clay/40 bg-white px-2 py-1 font-display text-xl text-forest outline-none focus:border-forest"
+                        />
+                        <span className="font-display text-xl text-pine/70">€</span>
+                      </div>
                     ) : (
-                      <p className="font-display text-lg text-pine/60">TBD</p>
+                      <div className="flex items-center gap-2">
+                        {priceOf(openItem) != null ? (
+                          <p className="font-display text-2xl text-forest">
+                            {formatEuro(priceOf(openItem)!)}
+                            {openItem.priceNote ? (
+                              <span className="ml-1 font-sans text-sm text-pine/70">
+                                {openItem.priceNote}
+                              </span>
+                            ) : null}
+                          </p>
+                        ) : (
+                          <p className="font-display text-lg text-pine/60">TBD</p>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setEditingPrice(true)}
+                          title="Edit price"
+                          className="rounded-full border border-clay/30 px-2 py-1 text-xs text-pine transition hover:border-forest/40"
+                        >
+                          ✏️ Edit
+                        </button>
+                      </div>
                     )}
                     <p className="mt-0.5 text-xs text-clay">{openItem.source}</p>
                   </div>
@@ -855,15 +857,17 @@ export function ShoppingClient({ items }: { items: ShopItem[] }) {
                     </span>
                   ) : null}
                   <div className="flex-1">
-                    {!identity && (
-                      <p className="mb-2 text-xs text-clay">
-                        Set your name above to comment
-                      </p>
-                    )}
                     <textarea
                       value={draftText}
                       onChange={(e) => setDraftText(e.target.value)}
-                      placeholder="Add a comment…"
+                      onKeyDown={(e) => {
+                        // Enter posts; Shift+Enter makes a new line.
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          e.currentTarget.form?.requestSubmit();
+                        }
+                      }}
+                      placeholder="Add a comment…  (Enter to post, Shift+Enter for a new line)"
                       rows={3}
                       className="w-full resize-none rounded-xl border border-clay/30 bg-cream px-3 py-2 text-sm text-pine outline-none focus:border-forest/50"
                     />
@@ -912,6 +916,7 @@ export function ShoppingClient({ items }: { items: ShopItem[] }) {
                       <button
                         type="submit"
                         disabled={
+                          !identity ||
                           posting ||
                           (!draftText.trim() && draftImages.length === 0)
                         }
@@ -920,6 +925,66 @@ export function ShoppingClient({ items }: { items: ShopItem[] }) {
                         {posting ? "Posting…" : "Post"}
                       </button>
                     </div>
+
+                    {/* Who you're commenting as — click the name to change it. */}
+                    {commentNameEdit ? (
+                      <div className="mt-2 flex items-center gap-2">
+                        <input
+                          value={nameDraft}
+                          onChange={(e) => setNameDraft(e.target.value)}
+                          autoFocus
+                          placeholder="Your name"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && nameDraft.trim()) {
+                              e.preventDefault();
+                              saveIdentity(nameDraft);
+                              setCommentNameEdit(false);
+                            }
+                          }}
+                          className="w-40 rounded-full border border-clay/30 bg-cream px-3 py-1.5 text-xs text-pine outline-none focus:border-forest/50"
+                        />
+                        <button
+                          type="button"
+                          disabled={!nameDraft.trim()}
+                          onClick={() => {
+                            saveIdentity(nameDraft);
+                            setCommentNameEdit(false);
+                          }}
+                          className="rounded-full bg-forest px-3 py-1.5 text-xs font-medium text-cream disabled:opacity-40"
+                        >
+                          Save
+                        </button>
+                      </div>
+                    ) : identity ? (
+                      <p className="mt-2 text-xs text-clay">
+                        Commenting as{" "}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setNameDraft(identity);
+                            setCommentNameEdit(true);
+                          }}
+                          className="font-semibold text-forest underline underline-offset-2 transition hover:text-lake"
+                        >
+                          {identity}
+                        </button>
+                      </p>
+                    ) : (
+                      <p className="mt-2 text-xs text-clay">
+                        Commenting disabled —{" "}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setNameDraft("");
+                            setCommentNameEdit(true);
+                          }}
+                          className="font-semibold text-forest underline underline-offset-2 transition hover:text-lake"
+                        >
+                          choose a name
+                        </button>{" "}
+                        to join in.
+                      </p>
+                    )}
                   </div>
                 </div>
               </form>
