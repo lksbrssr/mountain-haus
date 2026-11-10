@@ -101,7 +101,7 @@ function send(res, status, body) {
   res.writeHead(status, {
     "Content-Type": "application/json; charset=utf-8",
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+    "Access-Control-Allow-Methods": "GET,POST,DELETE,OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
     "Cache-Control": "no-store",
   });
@@ -139,6 +139,24 @@ const server = http.createServer((req, res) => {
 
   if (req.method === "GET" && url.pathname === "/api/comments") {
     return send(res, 200, grouped());
+  }
+
+  if (
+    req.method === "DELETE" &&
+    url.pathname.startsWith("/api/comments/")
+  ) {
+    const id = decodeURIComponent(
+      url.pathname.slice("/api/comments/".length),
+    );
+    const author = url.searchParams.get("author") || "";
+    const idx = comments.findIndex((c) => c.id === id);
+    if (idx === -1) return send(res, 404, { error: "not found" });
+    // Only the comment's author can delete it.
+    if (!author || comments[idx].author !== author)
+      return send(res, 403, { error: "not your comment" });
+    comments.splice(idx, 1);
+    persist();
+    return send(res, 200, { ok: true, id });
   }
 
   if (req.method === "GET" && url.pathname === "/api/prices") {

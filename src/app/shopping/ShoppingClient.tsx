@@ -12,11 +12,17 @@ function formatEuro(n: number) {
 }
 
 function formatWhen(ts: number) {
+  const diff = Date.now() - ts;
+  const m = Math.round(diff / 60000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m} min ago`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `${h} h ago`;
+  const d = Math.round(h / 24);
+  if (d < 7) return `${d} d ago`;
   return new Intl.DateTimeFormat("de-DE", {
     day: "2-digit",
     month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
   }).format(ts);
 }
 
@@ -136,6 +142,7 @@ export function ShoppingClient({ items }: { items: ShopItem[] }) {
   const [nameDraft, setNameDraft] = useState("");
   const [editingName, setEditingName] = useState(false);
   const [commentNameEdit, setCommentNameEdit] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   // Close the status dropdown on any outside click (option/toggle clicks
   // stopPropagation, so they won't trigger this).
@@ -205,9 +212,10 @@ export function ShoppingClient({ items }: { items: ShopItem[] }) {
     }
   }
 
-  // Reset per-item price editing whenever the open item changes.
+  // Reset per-item price editing + any pending delete when the item changes.
   useEffect(() => {
     setEditingPrice(false);
+    setConfirmDelete(null);
   }, [openItem]);
 
   // Close the modal on Escape; lock background scroll while it's open.
@@ -394,6 +402,23 @@ export function ShoppingClient({ items }: { items: ShopItem[] }) {
       alert("Couldn't save that comment — check your connection and try again.");
     } finally {
       setPosting(false);
+    }
+  }
+
+  async function deleteComment(item: string, id: string) {
+    setConfirmDelete(null);
+    setComments((prev) => ({
+      ...prev,
+      [item]: (prev[item] ?? []).filter((c) => c.id !== id),
+    }));
+    if (!API) return;
+    try {
+      await fetch(
+        `${API}/api/comments/${id}?author=${encodeURIComponent(identity)}`,
+        { method: "DELETE" },
+      );
+    } catch {
+      /* ignore; next load reconciles */
     }
   }
 
@@ -854,6 +879,38 @@ export function ShoppingClient({ items }: { items: ShopItem[] }) {
                               className="h-20 w-20 cursor-zoom-in rounded-lg object-cover ring-1 ring-clay/20"
                             />
                           ))}
+                        </div>
+                      ) : null}
+                      {identity && c.author === identity ? (
+                        <div className="mt-2 flex justify-end gap-3 text-[0.7rem]">
+                          {confirmDelete === c.id ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  deleteComment(openItem.name, c.id)
+                                }
+                                className="font-semibold text-[#b5552f] underline underline-offset-2"
+                              >
+                                Confirm delete
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setConfirmDelete(null)}
+                                className="text-clay underline underline-offset-2 transition hover:text-pine"
+                              >
+                                Keep
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setConfirmDelete(c.id)}
+                              className="text-clay underline underline-offset-2 transition hover:text-pine"
+                            >
+                              Delete
+                            </button>
+                          )}
                         </div>
                       ) : null}
                     </div>
