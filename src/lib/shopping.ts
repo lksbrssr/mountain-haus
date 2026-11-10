@@ -182,7 +182,7 @@ export const shoppingItems: ShopItem[] = [
     category: "Workspace",
     price: 366.23,
     status: "planned",
-    image: "/shopping/dell-monitor.webp",
+    image: "/shopping/dell-monitor.jpg",
     blurb:
       "A crisp 4K display with USB-C — for the rainy days when someone has to get a little work done.",
     link: "https://www.mediamarkt.de/de/product/_dell-dell-p2723qe-monitor-27-6847cm-4k-3840-x-2160-ips-5ms-169-hdmi-displayport-usb-c-27-zoll-suhd-4k-635-7366cm-25-29-zoll-5-ms-reaktionszeit-98693323.html",
