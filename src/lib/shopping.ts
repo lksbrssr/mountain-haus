@@ -93,6 +93,18 @@ export const shoppingItems: ShopItem[] = [
     source: "sonos.com",
   },
   {
+    name: "Tolomeo Tavolo Schreibtischleuchte",
+    brand: "Artemide · Design classic since 1987",
+    category: "Lighting",
+    price: 304,
+    status: "planned",
+    image: "/shopping/lamp.jpg",
+    blurb:
+      "The iconic Artemide desk lamp — aluminium, fully adjustable, a bit of Italian design for the workspace.",
+    link: "https://www.connox.de/products/artemide-tolomeo-tavolo-schreibtischleuchte",
+    source: "connox.de",
+  },
+  {
     name: "P2723QE 27″ 4K USB-C Monitor",
     brand: "Dell · 3840×2160 IPS",
     category: "Workspace",
