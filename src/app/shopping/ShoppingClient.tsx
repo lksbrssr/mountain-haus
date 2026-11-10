@@ -82,10 +82,6 @@ export function ShoppingClient({ items }: { items: ShopItem[] }) {
         <h1 className="mt-2 max-w-2xl font-display text-5xl leading-[1.05] text-forest sm:text-6xl">
           Things for the haus
         </h1>
-        <p className="mt-4 max-w-xl text-lg leading-relaxed text-pine/90">
-          A running list of what we&apos;re planning to buy — and what&apos;s already
-          on its way. Prices are a snapshot; tap any item to see it at the source.
-        </p>
 
         <div className="mt-8 flex flex-wrap items-center gap-3 text-sm">
           <span className="rounded-full border border-clay/30 bg-cream px-4 py-2 text-pine">
