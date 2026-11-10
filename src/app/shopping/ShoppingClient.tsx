@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
-import { house } from "@/lib/house";
 import type { ShopItem } from "@/lib/shopping";
 
 function formatEuro(n: number) {
@@ -12,7 +11,7 @@ function formatEuro(n: number) {
   }).format(n);
 }
 
-type Vote = "up" | "down" | null;
+type VoteCounts = { up: number; down: number };
 type UiStatus = "planned" | "bought" | "skip";
 
 const STATUS_LABEL: Record<UiStatus, string> = {
@@ -20,26 +19,36 @@ const STATUS_LABEL: Record<UiStatus, string> = {
   bought: "Bought",
   skip: "Not planned",
 };
-const NEXT_STATUS: Record<UiStatus, UiStatus> = {
-  planned: "bought",
-  bought: "skip",
-  skip: "planned",
-};
+const STATUS_ORDER: UiStatus[] = ["planned", "bought", "skip"];
 
 export function ShoppingClient({ items }: { items: ShopItem[] }) {
   const [showPrices, setShowPrices] = useState(true);
-  const [votes, setVotes] = useState<Record<string, Vote>>({});
+  const [votes, setVotes] = useState<Record<string, VoteCounts>>({});
   const [statuses, setStatuses] = useState<Record<string, UiStatus>>(() =>
     Object.fromEntries(items.map((i) => [i.name, i.status])),
   );
+  const [openMenu, setOpenMenu] = useState<string | null>(null);
 
-  function cycleStatus(e: React.MouseEvent, name: string) {
+  // Close the status dropdown on any outside click (option/toggle clicks
+  // stopPropagation, so they won't trigger this).
+  useEffect(() => {
+    if (!openMenu) return;
+    const close = () => setOpenMenu(null);
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, [openMenu]);
+
+  function toggleMenu(e: React.MouseEvent, name: string) {
     e.preventDefault();
     e.stopPropagation();
-    setStatuses((prev) => {
-      const current = prev[name] ?? "planned";
-      return { ...prev, [name]: NEXT_STATUS[current] };
-    });
+    setOpenMenu((prev) => (prev === name ? null : name));
+  }
+
+  function setStatus(e: React.MouseEvent, name: string, status: UiStatus) {
+    e.preventDefault();
+    e.stopPropagation();
+    setStatuses((prev) => ({ ...prev, [name]: status }));
+    setOpenMenu(null);
   }
 
   function castVote(
@@ -50,7 +59,10 @@ export function ShoppingClient({ items }: { items: ShopItem[] }) {
     // Keep the surrounding <a> from navigating to the source.
     e.preventDefault();
     e.stopPropagation();
-    setVotes((prev) => ({ ...prev, [name]: prev[name] === dir ? null : dir }));
+    setVotes((prev) => {
+      const current = prev[name] ?? { up: 0, down: 0 };
+      return { ...prev, [name]: { ...current, [dir]: current[dir] + 1 } };
+    });
   }
 
   const statusOf = (name: string): UiStatus => statuses[name] ?? "planned";
@@ -135,47 +147,90 @@ export function ShoppingClient({ items }: { items: ShopItem[] }) {
                       sizes="(min-width: 1024px) 360px, (min-width: 640px) 50vw, 90vw"
                       className="object-contain p-4 transition duration-500 group-hover:scale-[1.04]"
                     />
-                    <button
-                      type="button"
-                      onClick={(e) => cycleStatus(e, item.name)}
-                      title="Tap to change status"
-                      className={`absolute left-4 top-4 rounded-full px-3 py-1 text-xs font-medium transition hover:scale-105 ${
-                        statusOf(item.name) === "bought"
-                          ? "bg-lake text-cream"
-                          : statusOf(item.name) === "skip"
-                            ? "bg-ink/70 text-cream"
-                            : "bg-cream/90 text-forest ring-1 ring-clay/30"
-                      }`}
-                    >
-                      {STATUS_LABEL[statusOf(item.name)]}
-                    </button>
+                    <div className="absolute left-4 top-4 z-20">
+                      <button
+                        type="button"
+                        onClick={(e) => toggleMenu(e, item.name)}
+                        aria-haspopup="menu"
+                        aria-expanded={openMenu === item.name}
+                        title="Change status"
+                        className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition hover:brightness-105 ${
+                          statusOf(item.name) === "bought"
+                            ? "bg-lake text-cream"
+                            : statusOf(item.name) === "skip"
+                              ? "bg-ink/70 text-cream"
+                              : "bg-cream/90 text-forest ring-1 ring-clay/30"
+                        }`}
+                      >
+                        {STATUS_LABEL[statusOf(item.name)]}
+                        <span
+                          className={`text-[0.6rem] leading-none transition ${
+                            openMenu === item.name ? "rotate-180" : ""
+                          }`}
+                        >
+                          ▾
+                        </span>
+                      </button>
+
+                      {openMenu === item.name && (
+                        <div
+                          role="menu"
+                          className="absolute left-0 top-full mt-1.5 w-36 overflow-hidden rounded-xl border border-clay/25 bg-cream p-1 shadow-soft"
+                        >
+                          {STATUS_ORDER.map((s) => (
+                            <button
+                              key={s}
+                              type="button"
+                              role="menuitemradio"
+                              aria-checked={statusOf(item.name) === s}
+                              onClick={(e) => setStatus(e, item.name, s)}
+                              className={`flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-left text-xs transition hover:bg-sand/60 ${
+                                statusOf(item.name) === s
+                                  ? "font-semibold text-forest"
+                                  : "text-pine"
+                              }`}
+                            >
+                              {STATUS_LABEL[s]}
+                              {statusOf(item.name) === s ? (
+                                <span className="text-lake">✓</span>
+                              ) : null}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {/* Vote pill — sits at the image's bottom-right, 35% of its
                       height protruding below the image edge. */}
                   <div className="absolute bottom-0 right-4 flex translate-y-[35%] items-center gap-1.5">
-                    <button
-                      type="button"
-                      aria-label="Thumbs up"
-                      aria-pressed={votes[item.name] === "up"}
-                      onClick={(e) => castVote(e, item.name, "up")}
-                      className={`flex h-[1.71rem] w-[1.71rem] items-center justify-center rounded-full border border-clay/20 text-[0.855rem] leading-none shadow-soft transition hover:scale-110 ${
-                        votes[item.name] === "up" ? "bg-lake/20" : "bg-cream opacity-80 hover:opacity-100"
-                      }`}
-                    >
-                      👍
-                    </button>
-                    <button
-                      type="button"
-                      aria-label="Thumbs down"
-                      aria-pressed={votes[item.name] === "down"}
-                      onClick={(e) => castVote(e, item.name, "down")}
-                      className={`flex h-[1.71rem] w-[1.71rem] items-center justify-center rounded-full border border-clay/20 text-[0.855rem] leading-none shadow-soft transition hover:scale-110 ${
-                        votes[item.name] === "down" ? "bg-clay/25" : "bg-cream opacity-80 hover:opacity-100"
-                      }`}
-                    >
-                      👎
-                    </button>
+                    {(["up", "down"] as const).map((dir) => {
+                      const count = votes[item.name]?.[dir] ?? 0;
+                      const active = count > 0;
+                      const activeBg = dir === "up" ? "bg-lake/15" : "bg-clay/20";
+                      const activeRing =
+                        dir === "up" ? "border-lake/50" : "border-clay/50";
+                      return (
+                        <button
+                          key={dir}
+                          type="button"
+                          aria-label={dir === "up" ? "Thumbs up" : "Thumbs down"}
+                          onClick={(e) => castVote(e, item.name, dir)}
+                          className={`flex h-[1.71rem] items-center justify-center gap-1 rounded-full border text-[0.855rem] leading-none shadow-soft transition hover:scale-105 ${
+                            active
+                              ? `${activeBg} ${activeRing} px-2`
+                              : "w-[1.71rem] border-clay/20 bg-cream opacity-80 hover:opacity-100"
+                          }`}
+                        >
+                          <span>{dir === "up" ? "👍" : "👎"}</span>
+                          {active ? (
+                            <span className="text-[0.72rem] font-semibold text-forest">
+                              {count}
+                            </span>
+                          ) : null}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -219,11 +274,6 @@ export function ShoppingClient({ items }: { items: ShopItem[] }) {
               </a>
             ))}
           </div>
-
-          <p className="mt-10 text-center text-sm text-pine/70">
-            Prices shown are the latest we saw and may have changed. Nothing here is
-            a checkout — just our wish list for {house.name}.
-          </p>
         </div>
       </section>
     </>

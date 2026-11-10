@@ -141,6 +141,18 @@ export const shoppingItems: ShopItem[] = [
     source: "best-in-espresso.de",
   },
   {
+    name: "Miso Vorleger",
+    brand: "Evelyn Kahle · 100% Baumwolle",
+    category: "Textiles",
+    price: null,
+    status: "planned",
+    image: "/shopping/miso-vorleger.jpg",
+    blurb:
+      "Chunky knitted cotton rug — soft underfoot by the bed or bath. Comes in white, silver, ecru or revolver; sizes from 45×56 up to 100×200 cm.",
+    link: "https://www.evelyn-kahle.de/page/1630.htm",
+    source: "evelyn-kahle.de",
+  },
+  {
     name: "Tolomeo Tavolo Schreibtischleuchte",
     brand: "Artemide · Design classic since 1987",
     category: "Lighting",
