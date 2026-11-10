@@ -153,6 +153,18 @@ export const shoppingItems: ShopItem[] = [
     source: "paroli.info",
   },
   {
+    name: "Descendor 30 Skitourenrucksack",
+    brand: "Rab · 30 L ski touring pack",
+    category: "Outdoor",
+    price: 165.55,
+    status: "planned",
+    image: "/shopping/rab-descendor.jpg",
+    blurb:
+      "A 30-litre ski-touring backpack — diagonal and A-frame ski carry, ice-axe loops and a dedicated safety-gear pocket for days in the backcountry above the haus.",
+    link: "https://www.bergfreunde.de/rab-descendor-30-skitourenrucksack/",
+    source: "bergfreunde.de",
+  },
+  {
     name: "Big Green Egg Large Starterset",
     brand: "Big Green Egg · Kamado Keramikgrill",
     category: "Outdoor",

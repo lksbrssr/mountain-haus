@@ -11,8 +11,58 @@ function formatEuro(n: number) {
   }).format(n);
 }
 
+function formatWhen(ts: number) {
+  return new Intl.DateTimeFormat("de-DE", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(ts);
+}
+
 type VoteCounts = { up: number; down: number };
 type UiStatus = "planned" | "bought" | "skip";
+type Comment = {
+  id: string;
+  author: string;
+  text: string;
+  ts: number;
+  images?: string[];
+};
+
+const COMMENTS_KEY = "haus-shopping-comments";
+const NAME_KEY = "haus-shopping-name";
+
+// Backend base URL (Fly.io). When unset, the page runs in localStorage-only
+// mode so it still works, just without sharing comments across devices.
+const API = process.env.NEXT_PUBLIC_COMMENTS_API?.replace(/\/$/, "") || "";
+
+// Downscale + compress an uploaded image to a JPEG data URL so it fits
+// comfortably in localStorage (which is where comments live).
+function compressImage(file: File, maxDim = 1200, quality = 0.8): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("read failed"));
+    reader.onload = () => {
+      const img = new window.Image();
+      img.onerror = () => reject(new Error("decode failed"));
+      img.onload = () => {
+        const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+        const w = Math.round(img.width * scale);
+        const h = Math.round(img.height * scale);
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return reject(new Error("no canvas"));
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+}
 
 const STATUS_LABEL: Record<UiStatus, string> = {
   planned: "Planned",
@@ -28,6 +78,17 @@ export function ShoppingClient({ items }: { items: ShopItem[] }) {
     Object.fromEntries(items.map((i) => [i.name, i.status])),
   );
   const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [openItem, setOpenItem] = useState<ShopItem | null>(null);
+  const [comments, setComments] = useState<Record<string, Comment[]>>({});
+  const [draftText, setDraftText] = useState("");
+  const [draftImages, setDraftImages] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [posting, setPosting] = useState(false);
+  const [lightbox, setLightbox] = useState<string | null>(null);
+  // Who you are — used as the author for every comment. Saved in the browser.
+  const [identity, setIdentity] = useState("");
+  const [nameDraft, setNameDraft] = useState("");
+  const [editingName, setEditingName] = useState(false);
 
   // Close the status dropdown on any outside click (option/toggle clicks
   // stopPropagation, so they won't trigger this).
@@ -37,6 +98,64 @@ export function ShoppingClient({ items }: { items: ShopItem[] }) {
     document.addEventListener("click", close);
     return () => document.removeEventListener("click", close);
   }, [openMenu]);
+
+  // Load cached comments + remembered name instantly, then refresh from the
+  // backend so comments are shared across everyone's devices.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(COMMENTS_KEY);
+      if (raw) setComments(JSON.parse(raw));
+      const n = localStorage.getItem(NAME_KEY);
+      if (n) {
+        setIdentity(n);
+        setNameDraft(n);
+      }
+    } catch {
+      /* ignore */
+    }
+    if (!API) return;
+    fetch(`${API}/api/comments`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((data: Record<string, Comment[]>) => setComments(data))
+      .catch(() => {
+        /* offline — keep the cached copy */
+      });
+  }, []);
+
+  // Cache comments locally so they appear instantly on the next visit.
+  useEffect(() => {
+    try {
+      localStorage.setItem(COMMENTS_KEY, JSON.stringify(comments));
+    } catch {
+      /* ignore */
+    }
+  }, [comments]);
+
+  function saveIdentity(name: string) {
+    const clean = name.trim().slice(0, 80);
+    setIdentity(clean);
+    setEditingName(false);
+    try {
+      if (clean) localStorage.setItem(NAME_KEY, clean);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  // Close the modal on Escape; lock background scroll while it's open.
+  useEffect(() => {
+    if (!openItem) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpenItem(null);
+    };
+    document.addEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [openItem]);
 
   function toggleMenu(e: React.MouseEvent, name: string) {
     e.preventDefault();
@@ -65,6 +184,84 @@ export function ShoppingClient({ items }: { items: ShopItem[] }) {
     });
   }
 
+  async function handleFiles(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    setUploading(true);
+    try {
+      const pics = await Promise.all(
+        Array.from(files)
+          .filter((f) => f.type.startsWith("image/"))
+          .slice(0, 6)
+          .map((f) => compressImage(f).catch(() => null)),
+      );
+      const ok = pics.filter((p): p is string => Boolean(p));
+      if (ok.length) setDraftImages((prev) => [...prev, ...ok].slice(0, 6));
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function addComment(e: React.FormEvent) {
+    e.preventDefault();
+    if (!openItem) return;
+    const text = draftText.trim();
+    if (!text && draftImages.length === 0) return;
+    if (!identity) {
+      setEditingName(true);
+      return;
+    }
+    const item = openItem.name;
+    const images = draftImages;
+    const optimistic: Comment = {
+      id:
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random()}`,
+      author: identity,
+      text,
+      ts: Date.now(),
+      ...(images.length ? { images } : {}),
+    };
+    // Optimistically show it right away.
+    setComments((prev) => ({
+      ...prev,
+      [item]: [...(prev[item] ?? []), optimistic],
+    }));
+    setDraftText("");
+    setDraftImages([]);
+
+    if (!API) return;
+    setPosting(true);
+    try {
+      const res = await fetch(`${API}/api/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ item, author: identity, text, images }),
+      });
+      if (!res.ok) throw new Error("post failed");
+      const saved: Comment = await res.json();
+      // Replace the optimistic entry with the server's canonical one.
+      setComments((prev) => ({
+        ...prev,
+        [item]: (prev[item] ?? []).map((c) =>
+          c.id === optimistic.id ? saved : c,
+        ),
+      }));
+    } catch {
+      // Network/server error — roll back and let them retry.
+      setComments((prev) => ({
+        ...prev,
+        [item]: (prev[item] ?? []).filter((c) => c.id !== optimistic.id),
+      }));
+      setDraftText(text);
+      setDraftImages(images);
+      alert("Couldn't save that comment — check your connection and try again.");
+    } finally {
+      setPosting(false);
+    }
+  }
+
+  const commentsFor = (name: string): Comment[] => comments[name] ?? [];
   const statusOf = (name: string): UiStatus => statuses[name] ?? "planned";
   const known = items.filter((i) => i.price != null);
   const total = known.reduce((sum, i) => sum + (i.price ?? 0), 0);
@@ -82,6 +279,52 @@ export function ShoppingClient({ items }: { items: ShopItem[] }) {
         <h1 className="mt-2 max-w-2xl font-display text-5xl leading-[1.05] text-forest sm:text-6xl">
           Things for the haus
         </h1>
+
+        {/* Self-identify: your name is used as the author on every comment. */}
+        <div className="mt-6 text-sm">
+          {identity && !editingName ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-2 rounded-full bg-forest/10 px-4 py-2 text-forest">
+                <span className="text-base">👋</span>
+                You&apos;re posting as <b className="font-semibold">{identity}</b>
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setNameDraft(identity);
+                  setEditingName(true);
+                }}
+                className="rounded-full border border-clay/30 px-3 py-2 text-pine transition hover:border-forest/40"
+              >
+                Change name
+              </button>
+            </div>
+          ) : (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (nameDraft.trim()) saveIdentity(nameDraft);
+              }}
+              className="flex flex-wrap items-center gap-2"
+            >
+              <span className="text-pine/80">Who are you?</span>
+              <input
+                value={nameDraft}
+                onChange={(e) => setNameDraft(e.target.value)}
+                placeholder="Your name"
+                autoFocus={editingName}
+                className="w-44 rounded-full border border-clay/30 bg-cream px-4 py-2 text-pine outline-none focus:border-forest/50"
+              />
+              <button
+                type="submit"
+                disabled={!nameDraft.trim()}
+                className="rounded-full bg-forest px-4 py-2 font-medium text-cream transition hover:brightness-110 disabled:opacity-40"
+              >
+                Save
+              </button>
+            </form>
+          )}
+        </div>
 
         <div className="mt-8 flex flex-wrap items-center gap-3 text-sm">
           <span className="rounded-full border border-clay/30 bg-cream px-4 py-2 text-pine">
@@ -126,12 +369,18 @@ export function ShoppingClient({ items }: { items: ShopItem[] }) {
         <div className="mx-auto max-w-6xl px-6">
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {items.map((item) => (
-              <a
+              <div
                 key={item.name}
-                href={item.link}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group flex flex-col overflow-hidden rounded-3xl border border-clay/25 bg-cream transition hover:-translate-y-1 hover:shadow-soft"
+                role="button"
+                tabIndex={0}
+                onClick={() => setOpenItem(item)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setOpenItem(item);
+                  }
+                }}
+                className="group flex cursor-pointer flex-col overflow-hidden rounded-3xl border border-clay/25 bg-cream transition hover:-translate-y-1 hover:shadow-soft"
               >
                 {/* Wrapper is NOT clipped, so the vote pill can hang below the image */}
                 <div className="relative">
@@ -242,6 +491,15 @@ export function ShoppingClient({ items }: { items: ShopItem[] }) {
                     {item.blurb}
                   </p>
 
+                  {commentsFor(item.name).length > 0 && (
+                    <p className="mt-3 text-xs font-medium text-lake">
+                      💬 {commentsFor(item.name).length}{" "}
+                      {commentsFor(item.name).length === 1
+                        ? "comment"
+                        : "comments"}
+                    </p>
+                  )}
+
                   <div className="mt-5 flex items-end justify-between">
                     <div>
                       {showPrices ? (
@@ -262,16 +520,244 @@ export function ShoppingClient({ items }: { items: ShopItem[] }) {
                       )}
                       <p className="mt-0.5 text-xs text-clay">{item.source}</p>
                     </div>
-                    <span className="rounded-full border border-forest/30 px-4 py-2 text-sm text-forest transition group-hover:bg-forest group-hover:text-cream">
+                    <a
+                      href={item.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="rounded-full border border-forest/30 px-4 py-2 text-sm text-forest transition group-hover:bg-forest group-hover:text-cream"
+                    >
                       View →
-                    </span>
+                    </a>
                   </div>
                 </div>
-              </a>
+              </div>
             ))}
           </div>
         </div>
       </section>
+
+      {/* Item detail + comments modal */}
+      {openItem && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6"
+          onClick={() => setOpenItem(null)}
+        >
+          <div className="absolute inset-0 bg-ink/40 backdrop-blur-sm" />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={openItem.name}
+            onClick={(e) => e.stopPropagation()}
+            className="relative z-10 flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-3xl bg-cream shadow-soft md:grid md:max-h-[85vh] md:grid-cols-2"
+          >
+            <button
+              type="button"
+              aria-label="Close"
+              onClick={() => setOpenItem(null)}
+              className="absolute right-3 top-3 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-cream/90 text-pine ring-1 ring-clay/30 transition hover:bg-sand"
+            >
+              ✕
+            </button>
+
+            {/* Left: product */}
+            <div className="flex min-h-0 flex-col overflow-y-auto border-b border-clay/20 md:border-b-0 md:border-r">
+              <div className="relative aspect-[4/3] w-full shrink-0 bg-white">
+                <Image
+                  src={openItem.image}
+                  alt={openItem.name}
+                  fill
+                  sizes="(min-width: 768px) 420px, 90vw"
+                  className="object-contain p-5"
+                />
+              </div>
+              <div className="p-6">
+                <p className="text-xs uppercase tracking-[0.18em] text-clay">
+                  {openItem.category}
+                </p>
+                <h3 className="mt-1 font-display text-2xl leading-snug text-forest">
+                  {openItem.name}
+                </h3>
+                <p className="mt-0.5 text-sm text-pine/80">{openItem.brand}</p>
+                <p className="mt-3 text-sm leading-relaxed text-pine/90">
+                  {openItem.blurb}
+                </p>
+                <div className="mt-5 flex items-center justify-between">
+                  <div>
+                    {openItem.price != null ? (
+                      <p className="font-display text-2xl text-forest">
+                        {formatEuro(openItem.price)}
+                        {openItem.priceNote ? (
+                          <span className="ml-1 font-sans text-sm text-pine/70">
+                            {openItem.priceNote}
+                          </span>
+                        ) : null}
+                      </p>
+                    ) : (
+                      <p className="font-display text-lg text-pine/60">TBD</p>
+                    )}
+                    <p className="mt-0.5 text-xs text-clay">{openItem.source}</p>
+                  </div>
+                  <a
+                    href={openItem.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="rounded-full border border-forest/30 px-4 py-2 text-sm text-forest transition hover:bg-forest hover:text-cream"
+                  >
+                    View →
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            {/* Right: comments */}
+            <div className="flex min-h-0 flex-col">
+              <div className="shrink-0 border-b border-clay/20 px-6 py-4">
+                <h4 className="font-display text-lg text-forest">Comments</h4>
+                <p className="text-xs text-clay">
+                  {commentsFor(openItem.name).length} so far
+                </p>
+              </div>
+
+              <div className="flex-1 space-y-3 overflow-y-auto px-6 py-4">
+                {commentsFor(openItem.name).length === 0 ? (
+                  <p className="text-sm text-pine/60">
+                    No comments yet — start the conversation.
+                  </p>
+                ) : (
+                  commentsFor(openItem.name).map((c) => (
+                    <div
+                      key={c.id}
+                      className="rounded-2xl border border-clay/20 bg-sand/40 px-4 py-3"
+                    >
+                      <div className="flex items-baseline justify-between gap-2">
+                        <span className="text-sm font-semibold text-forest">
+                          {c.author}
+                        </span>
+                        <span className="text-[0.7rem] text-clay">
+                          {formatWhen(c.ts)}
+                        </span>
+                      </div>
+                      {c.text ? (
+                        <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-pine/90">
+                          {c.text}
+                        </p>
+                      ) : null}
+                      {c.images && c.images.length > 0 ? (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {c.images.map((src, i) => (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              key={i}
+                              src={src}
+                              alt=""
+                              onClick={() => setLightbox(src)}
+                              className="h-20 w-20 cursor-zoom-in rounded-lg object-cover ring-1 ring-clay/20"
+                            />
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <form
+                onSubmit={addComment}
+                className="shrink-0 border-t border-clay/20 px-6 py-4"
+              >
+                <p className="mb-2 text-xs text-clay">
+                  {identity ? (
+                    <>
+                      Posting as{" "}
+                      <span className="font-semibold text-forest">
+                        {identity}
+                      </span>
+                    </>
+                  ) : (
+                    "Set your name above to comment"
+                  )}
+                </p>
+                <textarea
+                  value={draftText}
+                  onChange={(e) => setDraftText(e.target.value)}
+                  placeholder="Add a comment…"
+                  rows={3}
+                  className="w-full resize-none rounded-xl border border-clay/30 bg-cream px-3 py-2 text-sm text-pine outline-none focus:border-forest/50"
+                />
+
+                {draftImages.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {draftImages.map((src, i) => (
+                      <div key={i} className="relative">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={src}
+                          alt=""
+                          className="h-16 w-16 rounded-lg object-cover ring-1 ring-clay/20"
+                        />
+                        <button
+                          type="button"
+                          aria-label="Remove image"
+                          onClick={() =>
+                            setDraftImages((prev) =>
+                              prev.filter((_, idx) => idx !== i),
+                            )
+                          }
+                          className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-ink/80 text-[0.65rem] text-cream"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  <label className="flex cursor-pointer items-center gap-1.5 rounded-full border border-clay/30 px-3 py-2 text-sm text-pine transition hover:border-forest/40">
+                    <span>{uploading ? "…" : "📎 Photo"}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => {
+                        handleFiles(e.target.files);
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+                  <button
+                    type="submit"
+                    disabled={
+                      posting ||
+                      (!draftText.trim() && draftImages.length === 0)
+                    }
+                    className="rounded-full bg-forest px-5 py-2 text-sm font-medium text-cream transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {posting ? "Posting…" : "Post"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Image lightbox */}
+      {lightbox && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/80 p-6"
+          onClick={() => setLightbox(null)}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={lightbox}
+            alt=""
+            className="max-h-[90vh] max-w-[90vw] rounded-xl object-contain"
+          />
+        </div>
+      )}
     </>
   );
 }
