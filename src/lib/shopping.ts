@@ -141,6 +141,18 @@ export const shoppingItems: ShopItem[] = [
     source: "best-in-espresso.de",
   },
   {
+    name: "Spielteppich / Bodenmatratze",
+    brand: "Maison du Monde · Hellgrau, 130×65 cm",
+    category: "Kids",
+    price: 17,
+    status: "planned",
+    image: "/shopping/spielteppich-matratze.jpg",
+    blurb:
+      "Tufted light-grey floor mattress — a soft landing spot for reading or play in the kids' room. Very good condition, pickup in München.",
+    link: "https://www.kleinanzeigen.de/s-anzeige/maison-du-monde-spielteppich-bodenmatratze/3565270755-20-6426",
+    source: "kleinanzeigen.de",
+  },
+  {
     name: "Miso Vorleger",
     brand: "Evelyn Kahle · 100% Baumwolle",
     category: "Textiles",
