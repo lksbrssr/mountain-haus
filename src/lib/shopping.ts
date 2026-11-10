@@ -25,7 +25,7 @@ export const shoppingItems: ShopItem[] = [
     category: "Storage",
     price: 89,
     status: "planned",
-    image: "/shopping/basket.jpg",
+    image: "/shopping/basket-round.jpg",
     blurb:
       "Handwoven rattan basket with handles — for blankets by the fire or boots at the door.",
     link: "https://www.otto.de/p/kobolo-aufbewahrungskorb-rattankorb-aufbewahrungskorb-mit-henkeln-cane-gr-l-S08DC0X0/",
@@ -50,7 +50,7 @@ export const shoppingItems: ShopItem[] = [
     category: "Cleaning",
     price: 209,
     status: "planned",
-    image: "/shopping/miele-vacuum.webp",
+    image: "/shopping/miele-vacuum-white.webp",
     blurb:
       "Bagged canister vacuum with plenty of suction — the workhorse for a house full of guests.",
     link: "https://www.mediamarkt.de/de/product/_miele-guard-m1s8380-bodenstaubsauger-maximale-leistung-890-watt-2966535.html",
@@ -91,6 +91,30 @@ export const shoppingItems: ShopItem[] = [
       "A versatile speaker in black — music on the balcony, podcasts in the kitchen, the whole house in sync.",
     link: "https://www.sonos.com/de-at/shop/sonos-play",
     source: "sonos.com",
+  },
+  {
+    name: "Edelstahl Schuhtrockner · 5 Paar",
+    brand: "Paroli · Stainless steel (INOX)",
+    category: "Boot room",
+    price: 916.8,
+    status: "planned",
+    image: "/shopping/dryer.png",
+    blurb:
+      "Wall-mounted stainless-steel boot & shoe dryer for five pairs — warm, dry boots after every ski day.",
+    link: "https://paroli.info/shop-edelstahl-trockner/",
+    source: "paroli.info",
+  },
+  {
+    name: "La Pavoni Professional Lusso",
+    brand: "La Pavoni · Lever espresso machine",
+    category: "Kitchen",
+    price: 749,
+    status: "planned",
+    image: "/shopping/espresso.jpg",
+    blurb:
+      "The classic chrome lever espresso machine — a little ceremony with the morning coffee before the mountains.",
+    link: "https://www.best-in-espresso.de/Espressomaschine-LAPAVONI-Europiccola-Lusso-Kunststoffgriff-LPLPLQ01EU-Paket1.html",
+    source: "best-in-espresso.de",
   },
   {
     name: "Tolomeo Tavolo Schreibtischleuchte",
