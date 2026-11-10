@@ -1,7 +1,7 @@
 # Fly.io config for the Haus comments backend.
 # Deploy steps are in README.md. App name must be globally unique — change it
 # here (and in the frontend NEXT_PUBLIC_COMMENTS_API) if this one is taken.
-app = "haus-am-see-comments"
+app = "mountain-haus-comments"
 primary_region = "fra"
 
 [build]

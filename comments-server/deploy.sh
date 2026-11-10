@@ -3,7 +3,7 @@
 # Run from the comments-server/ directory after `fly auth login`.
 set -euo pipefail
 
-APP="${APP:-haus-am-see-comments}"
+APP="${APP:-mountain-haus-comments}"
 REGION="${REGION:-fra}"
 
 echo "→ Using app: $APP (region $REGION)"

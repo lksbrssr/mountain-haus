@@ -20,9 +20,9 @@ fly auth login            # uses your existing Fly account
 ./deploy.sh               # creates app + volume, then deploys
 ```
 
-The script prints the API base URL, e.g. `https://haus-am-see-comments.fly.dev`.
+The script prints the API base URL, e.g. `https://mountain-haus-comments.fly.dev`.
 
-> App names are global on Fly. If `haus-am-see-comments` is taken, change `app`
+> App names are global on Fly. If `mountain-haus-comments` is taken, change `app`
 > in `fly.toml` and run `APP=your-name ./deploy.sh`.
 
 ## Point the frontend at it
@@ -30,7 +30,7 @@ The script prints the API base URL, e.g. `https://haus-am-see-comments.fly.dev`.
 In the Vercel project (haus-am-see), add an env var:
 
 ```
-NEXT_PUBLIC_COMMENTS_API = https://haus-am-see-comments.fly.dev
+NEXT_PUBLIC_COMMENTS_API = https://mountain-haus-comments.fly.dev
 ```
 
 Redeploy the frontend. Without this var the page falls back to localStorage-only
@@ -45,5 +45,5 @@ cd comments-server && fly deploy
 ## Inspect data
 
 ```bash
-fly ssh console -a haus-am-see-comments -C "cat /data/comments.json"
+fly ssh console -a mountain-haus-comments -C "cat /data/comments.json"
 ```

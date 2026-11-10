@@ -20,8 +20,40 @@ function formatWhen(ts: number) {
   }).format(ts);
 }
 
-type VoteCounts = { up: number; down: number };
-type UiStatus = "planned" | "bought" | "skip";
+type UiStatus = "planned" | "bought" | "got" | "skip";
+
+// Price string → number|null. Accepts "2.728,70", "2728,70" and "2728.70".
+function parsePrice(raw: string): number | null {
+  const s = raw.trim();
+  if (!s) return null;
+  let t = s.replace(/[^\d.,]/g, "");
+  if (t.includes(",") && t.includes(".")) t = t.replace(/\./g, "").replace(",", ".");
+  else if (t.includes(",")) t = t.replace(",", ".");
+  const n = parseFloat(t);
+  return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : null;
+}
+
+// Little round initials avatar, colour derived from the name.
+const AVATAR_COLORS = [
+  "bg-[#7c5cff]",
+  "bg-lake",
+  "bg-forest",
+  "bg-clay",
+  "bg-[#c86b4a]",
+  "bg-[#2f8f6b]",
+  "bg-[#b5873a]",
+];
+function initialsOf(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 1).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+function avatarColor(name: string): string {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return AVATAR_COLORS[h % AVATAR_COLORS.length];
+}
 type Comment = {
   id: string;
   author: string;
@@ -67,13 +99,27 @@ function compressImage(file: File, maxDim = 1200, quality = 0.8): Promise<string
 const STATUS_LABEL: Record<UiStatus, string> = {
   planned: "Planned",
   bought: "Bought",
+  got: "Got it",
   skip: "Not planned",
 };
-const STATUS_ORDER: UiStatus[] = ["planned", "bought", "skip"];
+const STATUS_ORDER: UiStatus[] = ["planned", "bought", "got", "skip"];
+
+function statusPillClass(s: UiStatus): string {
+  if (s === "bought") return "bg-lake text-cream";
+  if (s === "got") return "bg-forest text-cream";
+  if (s === "skip") return "bg-ink/70 text-cream";
+  return "bg-cream/90 text-forest ring-1 ring-clay/30";
+}
 
 export function ShoppingClient({ items }: { items: ShopItem[] }) {
   const [showPrices, setShowPrices] = useState(false);
-  const [votes, setVotes] = useState<Record<string, VoteCounts>>({});
+  const [editMode, setEditMode] = useState(false);
+  const [priceOverrides, setPriceOverrides] = useState<
+    Record<string, number | null>
+  >({});
+  const [votes, setVotes] = useState<
+    Record<string, { up: string[]; down: string[] }>
+  >({});
   const [statuses, setStatuses] = useState<Record<string, UiStatus>>(() =>
     Object.fromEntries(items.map((i) => [i.name, i.status])),
   );
@@ -120,6 +166,16 @@ export function ShoppingClient({ items }: { items: ShopItem[] }) {
       .catch(() => {
         /* offline — keep the cached copy */
       });
+    fetch(`${API}/api/prices`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((data: Record<string, number | null>) => setPriceOverrides(data))
+      .catch(() => {});
+    fetch(`${API}/api/votes`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((data: Record<string, { up: string[]; down: string[] }>) =>
+        setVotes(data),
+      )
+      .catch(() => {});
   }, []);
 
   // Cache comments locally so they appear instantly on the next visit.
@@ -170,18 +226,72 @@ export function ShoppingClient({ items }: { items: ShopItem[] }) {
     setOpenMenu(null);
   }
 
-  function castVote(
+  function votesFor(name: string): { up: string[]; down: string[] } {
+    const v = votes[name];
+    return { up: v?.up ?? [], down: v?.down ?? [] };
+  }
+
+  async function castVote(
     e: React.MouseEvent,
     name: string,
     dir: "up" | "down",
   ) {
-    // Keep the surrounding <a> from navigating to the source.
+    // Keep the card from opening the modal / navigating.
     e.preventDefault();
     e.stopPropagation();
+    if (!identity) {
+      setEditingName(true);
+      return;
+    }
+    const current = votesFor(name);
+    const mine = current[dir].includes(identity);
+    const on = !mine; // toggle
+    // Optimistic update (also drop me from the opposite side when turning on).
     setVotes((prev) => {
-      const current = prev[name] ?? { up: 0, down: 0 };
-      return { ...prev, [name]: { ...current, [dir]: current[dir] + 1 } };
+      const c = {
+        up: [...(prev[name]?.up ?? [])],
+        down: [...(prev[name]?.down ?? [])],
+      };
+      const arr = c[dir];
+      const idx = arr.indexOf(identity);
+      if (on && idx === -1) arr.push(identity);
+      if (!on && idx !== -1) arr.splice(idx, 1);
+      if (on) {
+        const other = dir === "up" ? c.down : c.up;
+        const oi = other.indexOf(identity);
+        if (oi !== -1) other.splice(oi, 1);
+      }
+      return { ...prev, [name]: c };
     });
+    if (!API) return;
+    try {
+      const res = await fetch(`${API}/api/votes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ item: name, author: identity, dir, on }),
+      });
+      if (!res.ok) throw new Error("vote failed");
+      const data: { item: string; votes: { up: string[]; down: string[] } } =
+        await res.json();
+      setVotes((prev) => ({ ...prev, [name]: data.votes }));
+    } catch {
+      /* leave the optimistic value; next load will reconcile */
+    }
+  }
+
+  async function savePrice(name: string, raw: string) {
+    const value = parsePrice(raw);
+    setPriceOverrides((p) => ({ ...p, [name]: value }));
+    if (!API) return;
+    try {
+      await fetch(`${API}/api/prices`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ item: name, price: value }),
+      });
+    } catch {
+      alert("Couldn't save the price — check your connection and try again.");
+    }
   }
 
   async function handleFiles(files: FileList | null) {
@@ -263,11 +373,15 @@ export function ShoppingClient({ items }: { items: ShopItem[] }) {
 
   const commentsFor = (name: string): Comment[] => comments[name] ?? [];
   const statusOf = (name: string): UiStatus => statuses[name] ?? "planned";
-  const known = items.filter((i) => i.price != null);
-  const total = known.reduce((sum, i) => sum + (i.price ?? 0), 0);
+  const priceOf = (item: ShopItem): number | null =>
+    item.name in priceOverrides ? priceOverrides[item.name] : item.price;
+  const pricesVisible = showPrices || editMode;
+  const known = items.filter((i) => priceOf(i) != null);
+  const total = known.reduce((sum, i) => sum + (priceOf(i) ?? 0), 0);
   const boughtCount = items.filter((i) => statusOf(i.name) === "bought").length;
+  const gotCount = items.filter((i) => statusOf(i.name) === "got").length;
   const skipCount = items.filter((i) => statusOf(i.name) === "skip").length;
-  const plannedCount = items.length - boughtCount - skipCount;
+  const plannedCount = items.length - boughtCount - gotCount - skipCount;
 
   return (
     <>
@@ -331,14 +445,28 @@ export function ShoppingClient({ items }: { items: ShopItem[] }) {
             {items.length} items
           </span>
           <span className="rounded-full border border-clay/30 bg-cream px-4 py-2 text-pine">
-            {boughtCount} bought · {plannedCount} planned
+            {plannedCount} planned · {boughtCount} bought
+            {gotCount > 0 ? ` · ${gotCount} got` : ""}
             {skipCount > 0 ? ` · ${skipCount} skipped` : ""}
           </span>
-          {showPrices && (
+          {pricesVisible && (
             <span className="rounded-full bg-forest px-4 py-2 font-medium text-cream">
               {formatEuro(total)} total
             </span>
           )}
+
+          {/* Edit prices toggle */}
+          <button
+            type="button"
+            onClick={() => setEditMode((v) => !v)}
+            className={`ml-auto flex items-center gap-2 rounded-full border px-4 py-2 transition ${
+              editMode
+                ? "border-forest bg-forest text-cream"
+                : "border-clay/30 bg-cream text-pine hover:border-forest/40"
+            }`}
+          >
+            {editMode ? "✓ Done editing" : "✏️ Edit prices"}
+          </button>
 
           {/* Price toggle */}
           <button
@@ -346,7 +474,7 @@ export function ShoppingClient({ items }: { items: ShopItem[] }) {
             role="switch"
             aria-checked={showPrices}
             onClick={() => setShowPrices((v) => !v)}
-            className="ml-auto flex items-center gap-2.5 rounded-full border border-clay/30 bg-cream px-4 py-2 text-pine transition hover:border-forest/40"
+            className="flex items-center gap-2.5 rounded-full border border-clay/30 bg-cream px-4 py-2 text-pine transition hover:border-forest/40"
           >
             <span>Show prices</span>
             <span
@@ -399,13 +527,9 @@ export function ShoppingClient({ items }: { items: ShopItem[] }) {
                         aria-haspopup="menu"
                         aria-expanded={openMenu === item.name}
                         title="Change status"
-                        className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition hover:brightness-105 ${
-                          statusOf(item.name) === "bought"
-                            ? "bg-lake text-cream"
-                            : statusOf(item.name) === "skip"
-                              ? "bg-ink/70 text-cream"
-                              : "bg-cream/90 text-forest ring-1 ring-clay/30"
-                        }`}
+                        className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition hover:brightness-105 ${statusPillClass(
+                          statusOf(item.name),
+                        )}`}
                       >
                         {STATUS_LABEL[statusOf(item.name)]}
                         <span
@@ -450,30 +574,46 @@ export function ShoppingClient({ items }: { items: ShopItem[] }) {
                       height protruding below the image edge. */}
                   <div className="absolute bottom-0 right-4 flex translate-y-[35%] items-center gap-1.5">
                     {(["up", "down"] as const).map((dir) => {
-                      const count = votes[item.name]?.[dir] ?? 0;
+                      const names = votesFor(item.name)[dir];
+                      const count = names.length;
+                      const mine = identity ? names.includes(identity) : false;
                       const active = count > 0;
                       const activeBg = dir === "up" ? "bg-lake/15" : "bg-clay/20";
-                      const activeRing =
-                        dir === "up" ? "border-lake/50" : "border-clay/50";
+                      const activeRing = mine
+                        ? dir === "up"
+                          ? "border-lake"
+                          : "border-clay"
+                        : dir === "up"
+                          ? "border-lake/50"
+                          : "border-clay/50";
                       return (
-                        <button
-                          key={dir}
-                          type="button"
-                          aria-label={dir === "up" ? "Thumbs up" : "Thumbs down"}
-                          onClick={(e) => castVote(e, item.name, dir)}
-                          className={`flex h-[1.71rem] items-center justify-center gap-1 rounded-full border text-[0.855rem] leading-none shadow-soft transition hover:scale-105 ${
-                            active
-                              ? `${activeBg} ${activeRing} px-2`
-                              : "w-[1.71rem] border-clay/20 bg-cream opacity-80 hover:opacity-100"
-                          }`}
-                        >
-                          <span>{dir === "up" ? "👍" : "👎"}</span>
-                          {active ? (
-                            <span className="text-[0.72rem] font-semibold text-forest">
-                              {count}
-                            </span>
-                          ) : null}
-                        </button>
+                        <div key={dir} className="group/vote relative">
+                          <button
+                            type="button"
+                            aria-label={dir === "up" ? "Thumbs up" : "Thumbs down"}
+                            onClick={(e) => castVote(e, item.name, dir)}
+                            className={`flex h-[1.71rem] items-center justify-center gap-1 rounded-full border text-[0.855rem] leading-none shadow-soft transition hover:scale-105 ${
+                              active
+                                ? `${activeBg} ${activeRing} px-2`
+                                : "w-[1.71rem] border-clay/20 bg-cream opacity-80 hover:opacity-100"
+                            }`}
+                          >
+                            <span>{dir === "up" ? "👍" : "👎"}</span>
+                            {active ? (
+                              <span className="text-[0.72rem] font-semibold text-forest">
+                                {count}
+                              </span>
+                            ) : null}
+                          </button>
+                          {count > 0 && (
+                            <div className="pointer-events-none absolute bottom-full right-0 z-30 mb-1.5 hidden w-max max-w-[12rem] rounded-lg bg-ink/90 px-2.5 py-1.5 text-left text-[0.7rem] leading-snug text-cream shadow-soft group-hover/vote:block">
+                              <span className="opacity-70">
+                                {dir === "up" ? "Liked by" : "Disliked by"}:
+                              </span>{" "}
+                              {names.join(", ")}
+                            </div>
+                          )}
+                        </div>
                       );
                     })}
                   </div>
@@ -502,10 +642,38 @@ export function ShoppingClient({ items }: { items: ShopItem[] }) {
 
                   <div className="mt-5 flex items-end justify-between">
                     <div>
-                      {showPrices ? (
-                        item.price != null ? (
+                      {editMode ? (
+                        <div
+                          onClick={(e) => e.stopPropagation()}
+                          onKeyDown={(e) => e.stopPropagation()}
+                        >
+                          <div className="flex items-center gap-1">
+                            <input
+                              key={String(priceOf(item))}
+                              type="text"
+                              inputMode="decimal"
+                              defaultValue={
+                                priceOf(item) != null ? String(priceOf(item)) : ""
+                              }
+                              onBlur={(e) => savePrice(item.name, e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  (e.target as HTMLInputElement).blur();
+                                }
+                              }}
+                              placeholder="TBD"
+                              className="w-24 rounded-lg border border-clay/40 bg-white px-2 py-1 font-display text-lg text-forest outline-none focus:border-forest"
+                            />
+                            <span className="font-display text-lg text-pine/70">
+                              €
+                            </span>
+                          </div>
+                        </div>
+                      ) : pricesVisible ? (
+                        priceOf(item) != null ? (
                           <p className="font-display text-2xl text-forest">
-                            {formatEuro(item.price)}
+                            {formatEuro(priceOf(item)!)}
                             {item.priceNote ? (
                               <span className="ml-1 font-sans text-sm text-pine/70">
                                 {item.priceNote}
@@ -567,7 +735,9 @@ export function ShoppingClient({ items }: { items: ShopItem[] }) {
                   src={openItem.image}
                   alt={openItem.name}
                   fill
-                  sizes="(min-width: 768px) 420px, 90vw"
+                  /* Same sizes as the grid card so the browser reuses the
+                     already-loaded image — it appears instantly. */
+                  sizes="(min-width: 1024px) 360px, (min-width: 640px) 50vw, 90vw"
                   className="object-contain p-5"
                 />
               </div>
@@ -584,9 +754,9 @@ export function ShoppingClient({ items }: { items: ShopItem[] }) {
                 </p>
                 <div className="mt-5 flex items-center justify-between">
                   <div>
-                    {openItem.price != null ? (
+                    {priceOf(openItem) != null ? (
                       <p className="font-display text-2xl text-forest">
-                        {formatEuro(openItem.price)}
+                        {formatEuro(priceOf(openItem)!)}
                         {openItem.priceNote ? (
                           <span className="ml-1 font-sans text-sm text-pine/70">
                             {openItem.priceNote}
@@ -630,16 +800,23 @@ export function ShoppingClient({ items }: { items: ShopItem[] }) {
                       key={c.id}
                       className="rounded-2xl border border-clay/20 bg-sand/40 px-4 py-3"
                     >
-                      <div className="flex items-baseline justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[0.7rem] font-semibold text-cream ${avatarColor(
+                            c.author,
+                          )}`}
+                        >
+                          {initialsOf(c.author)}
+                        </span>
                         <span className="text-sm font-semibold text-forest">
                           {c.author}
                         </span>
-                        <span className="text-[0.7rem] text-clay">
+                        <span className="ml-auto text-[0.7rem] text-clay">
                           {formatWhen(c.ts)}
                         </span>
                       </div>
                       {c.text ? (
-                        <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-pine/90">
+                        <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-pine/90">
                           {c.text}
                         </p>
                       ) : null}
@@ -666,25 +843,30 @@ export function ShoppingClient({ items }: { items: ShopItem[] }) {
                 onSubmit={addComment}
                 className="shrink-0 border-t border-clay/20 px-6 py-4"
               >
-                <p className="mb-2 text-xs text-clay">
+                <div className="flex gap-3">
                   {identity ? (
-                    <>
-                      Posting as{" "}
-                      <span className="font-semibold text-forest">
-                        {identity}
-                      </span>
-                    </>
-                  ) : (
-                    "Set your name above to comment"
-                  )}
-                </p>
-                <textarea
-                  value={draftText}
-                  onChange={(e) => setDraftText(e.target.value)}
-                  placeholder="Add a comment…"
-                  rows={3}
-                  className="w-full resize-none rounded-xl border border-clay/30 bg-cream px-3 py-2 text-sm text-pine outline-none focus:border-forest/50"
-                />
+                    <span
+                      title={identity}
+                      className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-cream ${avatarColor(
+                        identity,
+                      )}`}
+                    >
+                      {initialsOf(identity)}
+                    </span>
+                  ) : null}
+                  <div className="flex-1">
+                    {!identity && (
+                      <p className="mb-2 text-xs text-clay">
+                        Set your name above to comment
+                      </p>
+                    )}
+                    <textarea
+                      value={draftText}
+                      onChange={(e) => setDraftText(e.target.value)}
+                      placeholder="Add a comment…"
+                      rows={3}
+                      className="w-full resize-none rounded-xl border border-clay/30 bg-cream px-3 py-2 text-sm text-pine outline-none focus:border-forest/50"
+                    />
 
                 {draftImages.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-2">
@@ -713,30 +895,32 @@ export function ShoppingClient({ items }: { items: ShopItem[] }) {
                   </div>
                 )}
 
-                <div className="mt-2 flex items-center justify-between gap-2">
-                  <label className="flex cursor-pointer items-center gap-1.5 rounded-full border border-clay/30 px-3 py-2 text-sm text-pine transition hover:border-forest/40">
-                    <span>{uploading ? "…" : "📎 Photo"}</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      className="hidden"
-                      onChange={(e) => {
-                        handleFiles(e.target.files);
-                        e.target.value = "";
-                      }}
-                    />
-                  </label>
-                  <button
-                    type="submit"
-                    disabled={
-                      posting ||
-                      (!draftText.trim() && draftImages.length === 0)
-                    }
-                    className="rounded-full bg-forest px-5 py-2 text-sm font-medium text-cream transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    {posting ? "Posting…" : "Post"}
-                  </button>
+                    <div className="mt-2 flex items-center justify-between gap-2">
+                      <label className="flex cursor-pointer items-center gap-1.5 rounded-full border border-clay/30 px-3 py-2 text-sm text-pine transition hover:border-forest/40">
+                        <span>{uploading ? "…" : "📎 Photo"}</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          className="hidden"
+                          onChange={(e) => {
+                            handleFiles(e.target.files);
+                            e.target.value = "";
+                          }}
+                        />
+                      </label>
+                      <button
+                        type="submit"
+                        disabled={
+                          posting ||
+                          (!draftText.trim() && draftImages.length === 0)
+                        }
+                        className="rounded-full bg-forest px-5 py-2 text-sm font-medium text-cream transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        {posting ? "Posting…" : "Post"}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </form>
             </div>
