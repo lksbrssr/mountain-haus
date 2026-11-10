@@ -45,6 +45,18 @@ export const shoppingItems: ShopItem[] = [
     source: "kleinanzeigen.de",
   },
   {
+    name: "Spotless Max Cam Saugroboter",
+    brand: "Bosch · BCRDW3BX, 11.000 Pa",
+    category: "Cleaning",
+    price: null,
+    status: "planned",
+    image: "/shopping/bosch-saugroboter.jpg",
+    blurb:
+      "Robot vacuum with mopping and a self-cleaning dock — washes and dries its own pads, empties the bin, refills water. Camera navigation and 11.000 Pa suction keep the haus tidy between guests.",
+    link: "https://www.bosch-home.com/de/de/product/staubsauger/saugroboter/BCRDW3BX",
+    source: "bosch-home.com",
+  },
+  {
     name: "Guard M1S8380 Bodenstaubsauger",
     brand: "Miele · 890 W",
     category: "Cleaning",
