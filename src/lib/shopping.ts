@@ -81,15 +81,15 @@ export const shoppingItems: ShopItem[] = [
     source: "miele.de",
   },
   {
-    name: "Polsterbett Almeno",
+    name: "Bett Lorea mit Polsterbetthaupt",
     brand: "Grüne Erde · Massivholz & Wollstoff",
     category: "Furniture",
-    price: 3398,
+    price: 2728.7,
     status: "planned",
-    image: "/shopping/almeno-bett.jpg",
+    image: "/shopping/lorea-bett.jpg",
     blurb:
-      "Solid-wood bed with a softly upholstered, slightly reclined headboard — hand-upholstered in wool, metal-free joinery. A calm main bed for the master room (frame only; slats & mattress extra).",
-    link: "https://www.grueneerde.com/de-de/p/polsterbett-almeno/ge-p-693306",
+      "Solid-wood bed with a softly padded, upholstered headboard on slender wooden legs — a warm, calm main bed for the master room (frame only; slats & mattress extra).",
+    link: "https://www.grueneerde.com/de-de/p/bett-lorea-mit-polsterbetthaupt/ge-p-35196",
     source: "grueneerde.com",
   },
   {
