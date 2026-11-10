@@ -22,7 +22,7 @@ const STATUS_LABEL: Record<UiStatus, string> = {
 const STATUS_ORDER: UiStatus[] = ["planned", "bought", "skip"];
 
 export function ShoppingClient({ items }: { items: ShopItem[] }) {
-  const [showPrices, setShowPrices] = useState(true);
+  const [showPrices, setShowPrices] = useState(false);
   const [votes, setVotes] = useState<Record<string, VoteCounts>>({});
   const [statuses, setStatuses] = useState<Record<string, UiStatus>>(() =>
     Object.fromEntries(items.map((i) => [i.name, i.status])),
