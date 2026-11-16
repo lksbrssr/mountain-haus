@@ -105,7 +105,7 @@ export function VisitOverlay() {
       role="dialog"
       aria-modal="true"
       aria-label="Virtual visit"
-      className={`fixed inset-0 z-[100] flex items-center justify-center bg-ink/70 p-0 sm:p-4 ${from ? "visit-in" : ""}`}
+      className={`fixed inset-0 z-[100] flex items-center justify-center bg-ink/70 p-0 sm:p-4 ${from ? "visit-wait" : ""}`}
     >
       <div className="relative h-full w-full overflow-hidden bg-cream shadow-soft sm:h-[92vh] sm:max-w-6xl sm:rounded-3xl">
         {/* Mounted fresh each time the pop-out opens: with the flight when opened from the
