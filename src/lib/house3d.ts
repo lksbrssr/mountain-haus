@@ -172,7 +172,7 @@ export const walls: Wall[] = [
         },
       }),
       win(2.19, 2.53, LEVEL.eg, 0.87, 0.39),
-      balconyDoor("north-balcony", 0.78, 1.75, LEVEL.og, 2.4),
+      balconyDoor("north-balcony", 0.78, 1.75, LEVEL.og, 2.18),
       win(4.25, 4.85, LEVEL.og, 1.4, 0.6),
       // The room over the garage sits higher (floor at +3.29), and so do its windows.
       win(6.04, 7.18, OG_HIGH, 1.09, 0.89, { shutters: true }),
@@ -245,6 +245,8 @@ export type Balcony = {
   screens: Edge[];
   /** Edges with a band of boards hanging down from the roof. */
   aprons?: Edge[];
+  /** How far that band hangs down (default 1 m). */
+  apronDrop?: number;
   /** Posts from the deck up to the roof. */
   posts: Pt[];
   /** Posts also run down to the ground. */
@@ -272,6 +274,7 @@ export const balconies: Balcony[] = [
     top: OG_DECK,
     rails: [[[0, 9.99], [1.9, 9.99]]],
     aprons: [[[-1.5, 9.99], [1.9, 9.99]]],
+    apronDrop: 1.15,
     screens: [
       [[1.9, 9.99], [3.0, 9.99]],
       [[3.0, 9.99], [3.0, 8.99]],
@@ -326,6 +329,35 @@ export const balconies: Balcony[] = [
     posts: [],
   },
 ];
+
+/**
+ * Details of the street-side balcony, measured on the street photo: a beam under the hanging
+ * boards, two turned posts, carved braces, beam ends under the deck, two flower boxes on the
+ * railing and a thin metal rail above it. Plan x along the balcony front (y = 9.99).
+ */
+export const streetBalcony = {
+  front: 9.99,
+  x0: -1.5,
+  x1: 1.9,
+  /** Underside of the beam that the boards hang over. */
+  beamBottom: 5.26,
+  beamHeight: 0.14,
+  turnedPosts: [0.13, -0.5],
+  /** Braces under the beam: where each one meets its post, and which way it reaches (+1 = east). */
+  braces: [
+    { x: 1.9, reach: -1 },
+    { x: 0.2, reach: 1 },
+  ],
+  /** Beam ends under the deck. */
+  consoles: [1.63, 0.47],
+  /** Flower boxes on the outside of the railing: from x, to x. */
+  flowerBoxes: [
+    [0.49, 1.3],
+    [-1.21, -0.35],
+  ] as [number, number][],
+  /** Metal rails above the railing: heights above its cap. */
+  metalRails: [0.17, 0.25],
+};
 
 export const chimney = { x: 2.45, y: 4.2, w: 0.8, d: 0.6, top: 9.7 };
 
