@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { SiteHeader } from "@/components/Chrome";
 import { house } from "@/lib/house";
 import { createHouseScene, type SceneHandle, type ViewMode } from "./scene";
@@ -96,7 +97,10 @@ export function House3D({
     });
     sceneRef.current = scene;
     scene.ready.then(() => setModelReady(true));
+    // The pop-out around this view. It waits invisible when a flight was asked for.
+    const shell = host.closest<HTMLElement>('[role="dialog"]');
     if (still) {
+      if (shell) shell.style.opacity = "1";
       setFlying(false);
       setPhase("model");
       setMode("orbit");
@@ -120,16 +124,25 @@ export function House3D({
         try {
           await Promise.race([preloadCutout(), wait(2500).then(() => Promise.reject(new Error("slow")))]);
           if (cancelled) return;
-          cut.style.opacity = "1";
-          // The photo on the page is darkened by its gradient, so the cut-out starts a little
-          // darker and brightens on the way.
+          // The pop-out fades in for exactly as long as the house travels, so it is fully
+          // there at the moment the house lands in it.
+          shell?.animate([{ opacity: 0 }, { opacity: 1 }], {
+            duration: FLY_MS,
+            easing: "ease-in-out",
+            fill: "forwards",
+          });
+          // The house itself appears at once (a short fade so it does not pop). The photo on
+          // the page is darkened by its gradient, so the cut-out starts a little darker and
+          // brightens on the way.
           await cut.animate(
             [
-              { transform: start, filter: "brightness(0.82)" },
-              { transform: "none", filter: "brightness(1)" },
+              { transform: start, filter: "brightness(0.82)", opacity: 0 },
+              { opacity: 1, offset: 0.12 },
+              { transform: "none", filter: "brightness(1)", opacity: 1 },
             ],
             { duration: FLY_MS, easing: "cubic-bezier(0.65, 0, 0.35, 1)", fill: "forwards" },
           ).finished;
+          if (shell) shell.style.opacity = "1";
           await scene.ready;
           if (cancelled) return;
           // Landed: the 3D model is underneath, seen from the same spot. Dissolve into it.
@@ -146,6 +159,7 @@ export function House3D({
           await wait(MORPH_MS * 0.4);
         } catch {
           // Cut-out missing or too slow: skip the flight and show the model.
+          if (shell) shell.style.opacity = "1";
           host.style.opacity = "1";
           scene.reveal(600);
         }
@@ -203,23 +217,29 @@ export function House3D({
         <>
           {/* where the cut-out lands; the 3D view opens lined up with this frame */}
           <div ref={frameRef} aria-hidden className="pointer-events-none absolute" />
-          {flying && (
-            <div
-              ref={cutRef}
-              aria-hidden
-              className="pointer-events-none fixed z-[120] opacity-0"
-              style={{
-                transformOrigin: "0 0",
-                willChange: "transform, opacity",
-                backgroundImage: `url(${CUTOUT.image})`,
-                backgroundSize: "100% 100%",
-                WebkitMaskImage: `url(${CUTOUT.mask})`,
-                maskImage: `url(${CUTOUT.mask})`,
-                WebkitMaskSize: "100% 100%",
-                maskSize: "100% 100%",
-              }}
-            />
-          )}
+          {/* The flying house lives outside the pop-out (on the page body), so the pop-out can
+              fade in behind it without fading the house too. */}
+          {flying &&
+            typeof document !== "undefined" &&
+            createPortal(
+              <div
+                ref={cutRef}
+                aria-hidden
+                data-visit-cutout
+                className="pointer-events-none fixed z-[120] opacity-0"
+                style={{
+                  transformOrigin: "0 0",
+                  willChange: "transform, opacity",
+                  backgroundImage: `url(${CUTOUT.image})`,
+                  backgroundSize: "100% 100%",
+                  WebkitMaskImage: `url(${CUTOUT.mask})`,
+                  maskImage: `url(${CUTOUT.mask})`,
+                  WebkitMaskSize: "100% 100%",
+                  maskSize: "100% 100%",
+                }}
+              />,
+              document.body,
+            )}
         </>
       ) : (
         phase !== "model" && (

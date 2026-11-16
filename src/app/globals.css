@@ -36,9 +36,10 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   opacity: 0.5;
 }
 
-/* Virtual-visit pop-out fading in while the house flies into it */
+/* Virtual-visit pop-out when the house flies into it: it starts invisible and House3D fades it
+   in over the length of the flight. If that never happens, it shows itself after 3 s. */
 @keyframes visit-in {
   from { opacity: 0; }
   to { opacity: 1; }
 }
-.visit-in { animation: visit-in 0.45s ease-out both; }
+.visit-wait { opacity: 0; animation: visit-in 0.4s ease-out 3s forwards; }
