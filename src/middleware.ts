@@ -17,6 +17,6 @@ export async function middleware(req: NextRequest) {
 
   const url = req.nextUrl.clone();
   url.pathname = "/unlock";
-  url.searchParams.set("from", req.nextUrl.pathname);
+  url.searchParams.set("from", req.nextUrl.pathname + req.nextUrl.search);
   return NextResponse.redirect(url);
 }

@@ -165,6 +165,18 @@ export const shoppingItems: ShopItem[] = [
     source: "bergfreunde.de",
   },
   {
+    name: "Grizl CF 6 Gravelbike",
+    brand: "Canyon · Carbon, Sand Splash",
+    category: "Outdoor",
+    price: 1799,
+    status: "planned",
+    image: "/shopping/canyon-grizl-cf6.jpg",
+    blurb:
+      "Carbon gravel bike built for long days on and off the tarmac — relaxed adventure geometry, big tyre clearance and mounts for racks and bags. For exploring the valleys and forest roads around Bayrischzell.",
+    link: "https://www.canyon.com/de-de/gravel-bikes/adventure/grizl/cf/grizl-cf-6/4552.html?dwvar_4552_pv_rahmenfarbe=R126_P07",
+    source: "canyon.com",
+  },
+  {
     name: "Big Green Egg Large Starterset",
     brand: "Big Green Egg · Kamado Keramikgrill",
     category: "Outdoor",
