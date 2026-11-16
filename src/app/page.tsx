@@ -20,7 +20,8 @@ export default function Home() {
   return (
     <main>
       {/* Hero — just the photo */}
-      <section className="relative h-[92vh] min-h-[560px] w-full overflow-hidden">
+      {/* data-visit-hero: the virtual visit lifts the house out of this photo (see House3D) */}
+      <section data-visit-hero className="relative h-[92vh] min-h-[560px] w-full overflow-hidden">
         <Image
           src={house.heroImage}
           alt={house.name}
