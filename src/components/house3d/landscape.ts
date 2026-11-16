@@ -11,7 +11,13 @@ import { mergeGeometries, mergeVertices } from "three/examples/jsm/utils/BufferG
 // forest stands in reality, and the open valley with the mountains to the south
 // and west. It is the backdrop, and it lights the scene.
 // ---------------------------------------------------------------------------
-export type Sky = { haze: THREE.Color; dispose: () => void };
+export type Sky = {
+  haze: THREE.Color;
+  /** The backdrop: a large ball round the camera that can fade in and out over the plain background. */
+  dome: THREE.Mesh;
+  setOpacity: (v: number) => void;
+  dispose: () => void;
+};
 
 /** The two halves, and how far down each photo its horizon sits (0 = top edge, 1 = bottom edge). */
 const SKY_HALVES = {
@@ -117,8 +123,9 @@ export async function loadSky(renderer: THREE.WebGLRenderer, scene: THREE.Scene,
   haze.lerp(new THREE.Color("#dfe7e6"), 0.45);
 
   const tex = new THREE.CanvasTexture(c);
-  tex.mapping = THREE.EquirectangularReflectionMapping;
   tex.colorSpace = THREE.SRGBColorSpace;
+  tex.generateMipmaps = false;
+  tex.minFilter = THREE.LinearFilter;
   // The light that the scene takes from this picture is made paler than the picture itself.
   // Forest and meadow fill most of it, and at full colour they would turn the white walls green.
   const pale = document.createElement("canvas");
@@ -137,13 +144,49 @@ export async function loadSky(renderer: THREE.WebGLRenderer, scene: THREE.Scene,
   const env = pmrem.fromEquirectangular(light);
   pmrem.dispose();
   light.dispose();
-  scene.background = tex;
   scene.environment = env.texture;
+  // The backdrop is drawn on the inside of a ball round the camera. Unlike a scene background
+  // it can be faded, which is how the surroundings blend in over the plain background.
+  const domeMat = new THREE.ShaderMaterial({
+    uniforms: { map: { value: tex }, uOpacity: { value: 0 } },
+    vertexShader: `
+      varying vec3 vDir;
+      void main() {
+        vDir = position;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }`,
+    fragmentShader: `
+      uniform sampler2D map;
+      uniform float uOpacity;
+      varying vec3 vDir;
+      void main() {
+        vec3 d = normalize(vDir);
+        vec2 uv = vec2(atan(d.z, d.x) * 0.15915494 + 0.5, asin(clamp(d.y, -1.0, 1.0)) * 0.31830989 + 0.5);
+        gl_FragColor = vec4(texture2D(map, uv).rgb, uOpacity);
+        #include <colorspace_fragment>
+      }`,
+    side: THREE.BackSide,
+    transparent: true,
+    depthWrite: false,
+    fog: false,
+  });
+  const domeGeo = new THREE.SphereGeometry(1, 48, 24);
+  const dome = new THREE.Mesh(domeGeo, domeMat);
+  dome.frustumCulled = false;
+  dome.renderOrder = -10;
+  dome.visible = false;
   return {
     haze,
+    dome,
+    setOpacity: (v: number) => {
+      domeMat.uniforms.uOpacity.value = v;
+      dome.visible = v > 0.001;
+    },
     dispose: () => {
       tex.dispose();
       env.dispose();
+      domeGeo.dispose();
+      domeMat.dispose();
     },
   };
 }
@@ -229,27 +272,46 @@ const AERIAL = { px: 1157.75, py: 1307, size: 2048, metres: 0.20508, turn: (12.1
 const AERIAL_WIDE_M = 1260;
 const AERIAL_CLOSE_M = 512 * AERIAL.metres;
 
+export type GroundPhotos = { aerial: THREE.Texture; wide: THREE.Texture | null; close: THREE.Texture | null };
+export type Ground = {
+  /** 0 = clean view: the garden lies on a plain, neutral ground. 1 = the aerial photos show beyond the garden. */
+  surround: { value: number };
+  /** Hand over the aerial photos once they have loaded. */
+  setPhotos: (photos: GroundPhotos) => void;
+};
+
+/**
+ * The ground. Inside `keep` (east and north of the middle of the house, in metres: x0, x1,
+ * y0, y1) it is modelled lawn. Outside, across a soft and uneven band, it becomes a plain
+ * neutral surface (clean view) or the aerial photos (surroundings shown): `wide` for the
+ * village, `aerial` for the 420 m around the house, `close` for the sharpened nearest 100 m.
+ */
 export function patchyLawn(
   material: THREE.MeshStandardMaterial,
   meanLuminance: number,
-  /** The aerial photos, and the area around the house (east and north of its centre, in metres:
-   *  x0, x1, y0, y1) that stays modelled lawn. The photo takes over across a soft, uneven band
-   *  around it. `wide` shows the village from far away, `close` is a sharper copy of the
-   *  100 m around the house. */
-  far?: {
-    aerial: THREE.Texture;
-    wide: THREE.Texture | null;
-    close: THREE.Texture | null;
-    keep: [number, number, number, number];
-  },
-) {
+  keep: [number, number, number, number],
+  /** The same for the clean view, where the garden has an even margin on every side. */
+  keepClean: [number, number, number, number],
+  neutral: THREE.Color,
+  /** The lawn's average colour: where the lawn ends, its blades fade to this before the colour changes. */
+  flat: THREE.Color,
+): Ground {
+  const uSurround = { value: 0 };
+  const uAerial = { value: null as THREE.Texture | null };
+  const uAerialWide = { value: null as THREE.Texture | null };
+  const uAerialClose = { value: null as THREE.Texture | null };
+  const uHas = { value: new THREE.Vector2(0, 0) };
   material.onBeforeCompile = (shader) => {
     shader.uniforms.uLawnMean = { value: meanLuminance };
-    shader.uniforms.uAerial = { value: far?.aerial ?? null };
-    shader.uniforms.uAerialWide = { value: far?.wide ?? far?.aerial ?? null };
-    shader.uniforms.uAerialClose = { value: far?.close ?? far?.aerial ?? null };
-    shader.uniforms.uHas = { value: new THREE.Vector2(far?.wide ? 1 : 0, far?.close ? 1 : 0) };
-    shader.uniforms.uKeep = { value: new THREE.Vector4(...(far?.keep ?? [0, 0, 0, 0])) };
+    shader.uniforms.uSurround = uSurround;
+    shader.uniforms.uNeutral = { value: neutral };
+    shader.uniforms.uLawnFlat = { value: flat };
+    shader.uniforms.uAerial = uAerial;
+    shader.uniforms.uAerialWide = uAerialWide;
+    shader.uniforms.uAerialClose = uAerialClose;
+    shader.uniforms.uHas = uHas;
+    shader.uniforms.uKeep = { value: new THREE.Vector4(...keep) };
+    shader.uniforms.uKeepClean = { value: new THREE.Vector4(...keepClean) };
     shader.uniforms.uTurn = { value: new THREE.Vector2(Math.cos(AERIAL.turn), Math.sin(AERIAL.turn)) };
     shader.vertexShader = shader.vertexShader
       .replace("#include <common>", "#include <common>\nvarying vec2 vLawnAt;")
@@ -262,11 +324,15 @@ export function patchyLawn(
         "#include <common>",
         `#include <common>
         uniform float uLawnMean;
+        uniform float uSurround;
+        uniform vec3 uNeutral;
+        uniform vec3 uLawnFlat;
         uniform sampler2D uAerial;
         uniform sampler2D uAerialWide;
         uniform sampler2D uAerialClose;
         uniform vec2 uHas;
         uniform vec4 uKeep;
+        uniform vec4 uKeepClean;
         uniform vec2 uTurn;
         varying vec2 vLawnAt;
         // 1 well inside a photo, falling to 0 at its edge
@@ -284,9 +350,7 @@ export function patchyLawn(
           float lawnTone = smoothstep(0.7, 1.3, lawnA * 0.55 + lawnB * 0.45);
           diffuseColor.rgb *= mix(vec3(0.74, 0.82, 0.70), vec3(1.22, 1.15, 0.92), lawnTone);
         }
-        ${
-          far
-            ? `{
+        {
           // metres east and north of the middle of the house, first in the house's own
           // directions, then in true compass directions
           vec2 rel = vec2(vLawnAt.x, -vLawnAt.y);
@@ -309,23 +373,48 @@ export function patchyLawn(
           photo = mix(photo, close, sharp);
           // Distance outside the modelled garden (negative inside it). The handover runs over up
           // to 8 m and its line wanders by a couple of metres, so it does not read as a rectangle.
-          vec2 out2 = max(vec2(uKeep.x - rel.x, uKeep.z - rel.y), vec2(rel.x - uKeep.y, rel.y - uKeep.w));
+          vec4 keep = mix(uKeepClean, uKeep, uSurround);
+          vec2 out2 = max(vec2(keep.x - rel.x, keep.z - rel.y), vec2(rel.x - keep.y, rel.y - keep.w));
           float away = length(max(out2, 0.0)) + min(max(out2.x, out2.y), 0.0);
           // Where the photo shows grass or trees the handover takes its full width. Where it shows
           // asphalt or a roof it is short, because pale grass faded over asphalt reads as speckle.
-          float green = smoothstep(0.015, 0.09, photo.g - max(photo.r, photo.b));
-          float w = smoothstep(-1.0, mix(1.5, 7.0, green), away + (lawnA * 0.5 + lawnB * 0.5 - 1.0) * 9.0 * green) * reach;
+          // In the clean view the lawn always fades out over the full width.
+          float green = mix(1.0, smoothstep(0.015, 0.09, photo.g - max(photo.r, photo.b)), uSurround);
+          // (The wander is read from a strongly blurred copy of the lawn image. Read sharp, single
+          // blades would decide where the lawn ends, and the edge would break up into speckle.)
+          float wander =
+            dot(texture2D(map, vMapUv * 0.171 + vec2(0.31, 0.17), 6.0).rgb, vec3(0.3333)) * 0.5 +
+            dot(texture2D(map, vMapUv * 0.047 + vec2(0.57, 0.83), 5.0).rgb, vec3(0.3333)) * 0.5;
+          // In the clean view the edge does not wander: the garden ends in an even, soft line.
+          wander = (wander / uLawnMean - 1.0) * 12.0 * uSurround;
+          float w = smoothstep(-1.0, mix(1.5, 7.0, green), away + wander * green);
+          w *= mix(1.0, reach, uSurround);
           // Beyond the sharpened middle the photo goes soft close to the camera. There the grain
           // of the lawn image is laid over it, so the ground keeps some texture from near by.
           float grain = dot(texture2D(map, vMapUv).rgb, vec3(0.3333)) / uLawnMean;
-          diffuseColor.rgb = mix(diffuseColor.rgb, photo * 1.12 * mix(1.0, grain, 0.22 * (1.0 - sharp)), w);
-        }`
-            : ""
+          // The plain ground of the clean view takes most of its colour unlit, so it comes out as
+          // the background colour and the garden seems to float in it. A third stays lit, which
+          // keeps a faint shadow of the house on it.
+          vec3 beyond = mix(uNeutral * 0.3, photo * 1.12 * mix(1.0, grain, 0.22 * (1.0 - sharp)), uSurround);
+          totalEmissiveRadiance += uNeutral * 0.73 * smoothstep(0.15, 1.0, w) * (1.0 - uSurround);
+          // First the blades fade to plain green, then the green gives way. Mixing the textured
+          // lawn straight into a pale surface would leave its light blades behind as speckle.
+          vec3 lawn = mix(diffuseColor.rgb, uLawnFlat, smoothstep(0.0, 0.45, w));
+          diffuseColor.rgb = mix(lawn, beyond, smoothstep(0.15, 1.0, w));
         }`,
       );
   };
-  material.customProgramCacheKey = () => (far ? `patchy-lawn-aerial-${far.wide ? 1 : 0}${far.close ? 1 : 0}` : "patchy-lawn");
+  material.customProgramCacheKey = () => "patchy-lawn-ground";
   material.needsUpdate = true;
+  return {
+    surround: uSurround,
+    setPhotos: (photos) => {
+      uAerial.value = photos.aerial;
+      uAerialWide.value = photos.wide ?? photos.aerial;
+      uAerialClose.value = photos.close ?? photos.aerial;
+      uHas.value.set(photos.wide ? 1 : 0, photos.close ? 1 : 0);
+    },
+  };
 }
 
 /** Average colour and brightness of an image, as the renderer sees them. */

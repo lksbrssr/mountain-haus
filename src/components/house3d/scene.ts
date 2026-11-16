@@ -8,6 +8,8 @@ import {
   patchyLawn,
   shadeUv,
   spruceBelt,
+  type Ground,
+  type GroundPhotos,
   type Sky,
 } from "./landscape";
 import {
@@ -39,6 +41,12 @@ export type SceneHandle = {
   setProgress: (p: number) => void;
   /** Pause drawing while the scene is off screen or still covered by the photo. */
   setActive: (on: boolean) => void;
+  /**
+   * Clean view (off, the default): the house and its garden in a plain, neutral space.
+   * On: the camera pulls back and the real surroundings blend in (backdrop, aerial photo
+   * on the ground, trees).
+   */
+  setSurroundings: (on: boolean) => void;
   ready: Promise<void>;
   dispose: () => void;
 };
@@ -57,6 +65,7 @@ const roofUnder = (y: number) => roofTop(y) - 0.2;
 
 const COLOR = {
   sky: "#f6f1e7",
+
   ground: "#e4e6d6",
   stone: "#d3cdbf",
   plaster: "#f4f0e7",
@@ -183,18 +192,35 @@ function dotTexture() {
 // back to a texture drawn in code or to a flat colour.
 // ---------------------------------------------------------------------------
 type Surface = { map: THREE.Texture | null; size: number; color: string };
-type Surfaces = Record<"timber" | "plaster" | "roof" | "paving" | "grass", Surface> & {
-  /** Official aerial photos of the surroundings, laid on the ground beyond the garden: the
-   *  420 m around the house, the village around that, and a sharpened copy of the nearest 100 m. */
-  aerial: THREE.Texture | null;
-  aerialWide: THREE.Texture | null;
-  aerialClose: THREE.Texture | null;
-  dispose: () => void;
-};
+type Surfaces = Record<"timber" | "plaster" | "roof" | "paving" | "grass", Surface> & { dispose: () => void };
 
+// Official aerial photos of the surroundings, laid on the ground beyond the garden: the 420 m
+// around the house, the village around that, and a sharpened copy of the nearest 100 m. They
+// are fetched only when the surroundings are first shown.
 const AERIAL_URL = "/house3d/aerial.jpg";
 const AERIAL_WIDE_URL = "/house3d/aerial-wide.jpg";
-const AERIAL_CLOSE_URL: string | null = "/house3d/aerial-close.jpg";
+const AERIAL_CLOSE_URL = "/house3d/aerial-close.jpg";
+
+async function loadGroundPhotos(): Promise<GroundPhotos | null> {
+  const loader = new THREE.TextureLoader();
+  const load = async (url: string) => {
+    try {
+      const t = await loader.loadAsync(url);
+      t.colorSpace = THREE.SRGBColorSpace;
+      t.anisotropy = 8;
+      return t;
+    } catch {
+      return null;
+    }
+  };
+  const [aerial, wide, close] = await Promise.all([load(AERIAL_URL), load(AERIAL_WIDE_URL), load(AERIAL_CLOSE_URL)]);
+  if (!aerial) {
+    wide?.dispose();
+    close?.dispose();
+    return null;
+  }
+  return { aerial, wide, close };
+}
 
 const SURFACE_FILES = {
   timber: { url: "/house3d/timber.jpg", size: 2.1 },
@@ -253,33 +279,19 @@ async function loadSurfaces(): Promise<Surfaces> {
       return null;
     }
   };
-  const loadAerial = async (url: string | null) => {
-    if (!url) return null;
-    try {
-      const t = await loader.loadAsync(url);
-      t.colorSpace = THREE.SRGBColorSpace;
-      t.anisotropy = 8;
-      return t;
-    } catch {
-      return null;
-    }
-  };
-  const [timber, plaster, roof, paving, grass, aerial, aerialWide, aerialClose] = await Promise.all([
+  const [timber, plaster, roof, paving, grass] = await Promise.all([
     load("timber"),
     load("plaster"),
     load("roof"),
     load("paving"),
     load("grass"),
-    loadAerial(AERIAL_URL),
-    loadAerial(AERIAL_WIDE_URL),
-    loadAerial(AERIAL_CLOSE_URL),
   ]);
   const made: THREE.Texture[] = [];
   const drawn = (t: THREE.Texture) => {
     made.push(t);
     return t;
   };
-  const all = [timber, plaster, roof, paving, grass, aerial, aerialWide, aerialClose];
+  const all = [timber, plaster, roof, paving, grass];
   return {
     timber: timber
       ? { map: timber, size: SURFACE_FILES.timber.size, color: TIMBER_TINT }
@@ -290,9 +302,6 @@ async function loadSurfaces(): Promise<Surfaces> {
       : { map: drawn(tilesTexture(COLOR.roof)), size: 1.2, color: "#ffffff" },
     paving: { map: paving, size: SURFACE_FILES.paving.size, color: paving ? "#ffffff" : COLOR.stone },
     grass: { map: grass, size: SURFACE_FILES.grass.size, color: grass ? "#ffffff" : COLOR.ground },
-    aerial,
-    aerialWide,
-    aerialClose,
     dispose: () => [...all, ...made].forEach((t) => t?.dispose()),
   };
 }
@@ -304,6 +313,9 @@ function buildHouse(surf: Surfaces, small: boolean) {
   const group = new THREE.Group();
   let tufts: THREE.InstancedMesh | null = null;
   let clearForest: ((camera: THREE.Vector3) => void) | null = null;
+  let ground: Ground | null = null;
+  // Trees and the forest edge: part of the surroundings, hidden in the clean view.
+  const around: THREE.Object3D[] = [];
   const doors: Door[] = [];
   const disposables: { dispose: () => void }[] = [];
 
@@ -971,29 +983,25 @@ function buildHouse(surf: Surfaces, small: boolean) {
     mat.stone.aoMap = shade;
     const grassImage = surf.grass.map?.image as CanvasImageSource | undefined;
     const grassMean = grassImage ? imageMean(grassImage) : null;
-    // The garden stays modelled lawn. Beyond it the ground shows the official aerial photo:
-    // the turning circle that the drive runs into, the road past the east side, the
-    // neighbours' roofs and the forest, each in its place.
+    // The garden stays modelled lawn. Beyond it the ground is plain in the clean view. With the
+    // surroundings shown it carries the official aerial photo: the turning circle that the
+    // drive runs into, the road past the east side, the neighbours' roofs and the forest.
     const garden = { x0: -5, x1: 12.6, y0: -6, y1: 16 };
-    if (grassMean) {
-      patchyLawn(
-        lawn,
-        grassMean.luminance,
-        surf.aerial
-          ? {
-              aerial: surf.aerial,
-              wide: surf.aerialWide,
-              close: surf.aerialClose,
-              keep: [garden.x0 - CX, garden.x1 - CX, garden.y0 - CY, garden.y1 - CY],
-            }
-          : undefined,
-      );
-    }
     // The generated grass image is a deep green; the real lawn is lighter. The tint sits between
     // the earlier, yellower one and the colour of the lawns in the aerial photo, so the garden
     // and the ground beyond it are close in colour where they meet.
     const LAWN_LIFT = new THREE.Color(1.24, 1.4, 1.15);
     lawn.color.copy(LAWN_LIFT);
+    if (grassMean) {
+      ground = patchyLawn(
+        lawn,
+        grassMean.luminance,
+        [garden.x0 - CX, garden.x1 - CX, garden.y0 - CY, garden.y1 - CY],
+        [-6.5 - CX, 17.5 - CX, -7 - CY, 17 - CY],
+        new THREE.Color(COLOR.sky), // the plain ground of the clean view has the background's colour
+        grassMean.color.clone().multiply(LAWN_LIFT),
+      );
+    }
     const foot = entranceSteps.xTop - entranceSteps.count * entranceSteps.tread - 0.05;
     draped(
       // finer around the entrance, where steps, bank and walkway meet
@@ -1086,7 +1094,8 @@ function buildHouse(surf: Surfaces, small: boolean) {
     const [wbx, wby] = walkway.to;
     const wlen = Math.hypot(wbx - wax, wby - way);
     const isLawn = (x: number, y: number) => {
-      if (x < garden.x0 || x > garden.x1 || y < garden.y0 || y > garden.y1) return false;
+      // (not in the outer 3 m of the garden either, where the lawn is already fading out)
+      if (x < garden.x0 + 3 || x > garden.x1 - 3 || y < garden.y0 + 3 || y > garden.y1 - 3) return false;
       if (inside(footprint, x, y) || inside(paving, x, y)) return false;
       if (x > drive.x0 - 0.05 && x < drive.x1 + 0.05 && y > 8.99 && y < 8.99 + drive.length) return false;
       const st = entranceSteps;
@@ -1126,10 +1135,11 @@ function buildHouse(surf: Surfaces, small: boolean) {
       tree.group.position.copy(P(tx, ty, terrainHeight(tx, ty) - 0.05));
       disposables.push(tree);
       group.add(tree.group);
+      around.push(tree.group);
     });
 
     // The edge of the forest that climbs the hillside north of the house (traced on the aerial).
-    if (surf.aerial) {
+    {
       const belt = spruceBelt({
         edge: [
           [-78, 102],
@@ -1148,11 +1158,12 @@ function buildHouse(surf: Surfaces, small: boolean) {
       });
       disposables.push(belt);
       group.add(belt.mesh);
+      around.push(belt.mesh);
       clearForest = belt.clear;
     }
   }
 
-  return { group, doors, tufts, clearForest, dispose: () => disposables.forEach((d) => d.dispose()) };
+  return { group, doors, tufts, clearForest, ground, around, dispose: () => disposables.forEach((d) => d.dispose()) };
 }
 
 // ---------------------------------------------------------------------------
@@ -1264,10 +1275,10 @@ export function createHouseScene(host: HTMLElement, opts: SceneOptions): SceneHa
       return;
     }
     sky = loaded;
+    scene.add(loaded.dome);
     scene.environmentIntensity = 0.9;
     skyFill.intensity = 0.2;
     fill.intensity = 0.2;
-    if (scene.fog) scene.fog.color.copy(loaded.haze);
   });
   const ready = Promise.all([loadSurfaces(), skyReady]).then(([loaded]) => {
     if (disposed) {
@@ -1281,7 +1292,23 @@ export function createHouseScene(host: HTMLElement, opts: SceneOptions): SceneHa
       if (o instanceof THREE.Mesh || o instanceof THREE.Sprite) pickables.push(o);
     });
     showDots(dotsOn);
+    showAround(0);
   });
+
+  // -- Surroundings -----------------------------------------------------------
+  // 0 = clean view, 1 = surroundings shown. `v` runs towards `target` over about two seconds.
+  const surround = { v: 0, target: 0 };
+  let photos: GroundPhotos | null = null;
+  let photosState: "none" | "loading" | "ready" | "failed" = "none";
+  const CLEAN = new THREE.Color(COLOR.sky);
+  /** Trees rise out of the ground as the surroundings come in. */
+  const showAround = (e: number) => {
+    for (const o of house?.around ?? []) {
+      o.visible = e > 0.001;
+      if (o instanceof THREE.InstancedMesh) o.scale.set(1, Math.max(e, 0.001), 1);
+      else o.scale.setScalar(Math.max(e, 0.001));
+    }
+  };
 
   const camera = new THREE.PerspectiveCamera(FOV_ORBIT, 1, 0.05, 400);
   const target = new THREE.Vector3(0, 3.1, 0);
@@ -1323,7 +1350,9 @@ export function createHouseScene(host: HTMLElement, opts: SceneOptions): SceneHa
   const orbit = { yaw: HOME.yaw, pitch: HOME.pitch, zoom: 1, tYaw: HOME.yaw, tPitch: HOME.pitch, tZoom: 1 };
   // How far the free view may pull back: far enough to see the village around the house.
   const MAX_AWAY = 430;
-  const maxZoom = () => Math.max(1.7, MAX_AWAY / fit);
+  // In the clean view the house stays large on screen.
+  const CLEAN_ZOOM = 1.45;
+  const maxZoom = () => (surround.target ? Math.max(1.7, MAX_AWAY / fit) : CLEAN_ZOOM);
   const orbitPose = (yaw: number, pitch: number, zoom: number) => {
     const d = fit * zoom;
     const pos = new THREE.Vector3(
@@ -1625,15 +1654,21 @@ export function createHouseScene(host: HTMLElement, opts: SceneOptions): SceneHa
   // 5 cm near limit, a camera standing 80 m back (the free view on a phone) cannot tell the
   // paving from the lawn 3 cm below it, and the ground flickers while the camera moves.
   // Close to the house (door views) the limit stays at 5 cm.
+  const surroundEase = () => surround.v * surround.v * (3 - 2 * surround.v);
   const HOUSE_BOX = new THREE.Box3(new THREE.Vector3(-8.5, -0.6, -7.5), new THREE.Vector3(8.5, 10.5, 7.5));
   const updateClip = () => {
     const away = HOUSE_BOX.distanceToPoint(camera.position);
     const near = clamp(away * 0.12, 0.05, 12);
     const far = Math.max(1100, away * 4 + 900);
-    // The haze starts beyond the house and thickens towards the horizon, however far back the camera is.
+    // Clean view: the plain ground melts into the background a little way behind the house.
+    // Surroundings: the haze starts well beyond the house and thickens towards the horizon,
+    // however far back the camera is.
     if (scene.fog instanceof THREE.Fog) {
-      scene.fog.near = Math.max(80, away * 1.6);
-      scene.fog.far = Math.max(420, away * 4.5);
+      const e = surroundEase();
+      scene.fog.near = lerp(away + 26, Math.max(80, away * 1.6), e);
+      scene.fog.far = lerp(away + 100, Math.max(420, away * 4.5), e);
+      scene.fog.color.copy(CLEAN);
+      if (sky) scene.fog.color.lerp(sky.haze, e);
     }
     if (Math.abs(near - camera.near) > camera.near * 0.02 || Math.abs(far - camera.far) > 1) {
       camera.near = near;
@@ -1644,6 +1679,43 @@ export function createHouseScene(host: HTMLElement, opts: SceneOptions): SceneHa
 
   // -- Loop -----------------------------------------------------------------
   let raf = 0;
+  let lastFrame = performance.now();
+  let glideUntil = 0;
+  const SURROUND_MS = 2200;
+  const setSurroundings = (on: boolean) => {
+    const go = () => {
+      surround.target = on ? 1 : 0;
+      glideUntil = performance.now() + 3200;
+      if (on) {
+        // far enough back to see the turning circle and the nearest roofs, looking down a little more
+        orbit.tZoom = Math.max(orbit.tZoom, clamp(88 / fit, 1.25, maxZoom()));
+        orbit.tPitch = Math.max(orbit.tPitch, 0.52);
+      } else {
+        orbit.tZoom = Math.min(orbit.tZoom, 1);
+        orbit.tPitch = Math.min(orbit.tPitch, Math.max(HOME.pitch, 0.3));
+      }
+    };
+    if (!on || photosState === "ready") return go();
+    if (photosState === "loading") return;
+    photosState = "loading";
+    loadGroundPhotos().then((loaded) => {
+      if (disposed) {
+        loaded?.aerial.dispose();
+        loaded?.wide?.dispose();
+        loaded?.close?.dispose();
+        return;
+      }
+      photos = loaded;
+      photosState = loaded ? "ready" : "failed";
+      if (!loaded) return;
+      ready.then(() => {
+        house?.ground?.setPhotos(loaded);
+        // one frame with the photos in place (still invisible), so the first visible frame does not stall
+        renderer.render(scene, camera);
+        go();
+      });
+    });
+  };
   const frame = (now: number) => {
     raf = requestAnimationFrame(frame);
     if (!active) return;
@@ -1678,9 +1750,11 @@ export function createHouseScene(host: HTMLElement, opts: SceneOptions): SceneHa
         done();
       }
     } else if (mode === "orbit") {
+      // The camera glides while the surroundings come and go, and follows the hand otherwise.
+      const k = now < glideUntil ? 0.045 : 0.18;
       orbit.yaw += (orbit.tYaw - orbit.yaw) * 0.18;
-      orbit.pitch += (orbit.tPitch - orbit.pitch) * 0.18;
-      orbit.zoom += (orbit.tZoom - orbit.zoom) * 0.18;
+      orbit.pitch += (orbit.tPitch - orbit.pitch) * k;
+      orbit.zoom += (orbit.tZoom - orbit.zoom) * k;
       const pose = orbitPose(orbit.yaw, orbit.pitch, orbit.zoom);
       camera.position.copy(pose.pos);
       camera.quaternion.copy(pose.quat);
@@ -1688,7 +1762,23 @@ export function createHouseScene(host: HTMLElement, opts: SceneOptions): SceneHa
       camera.position.copy(look.pos);
       camera.rotation.set(look.pitch, look.yaw, 0, "YXZ");
     }
+    // Surroundings blend in and out: backdrop, aerial photo on the ground, trees.
+    const dt = Math.min(100, now - lastFrame);
+    lastFrame = now;
+    if (surround.v !== surround.target) {
+      surround.v = clamp(surround.v + (surround.target > surround.v ? 1 : -1) * (dt / SURROUND_MS), 0, 1);
+    }
+    {
+      const e = surroundEase();
+      if (house?.ground) house.ground.surround.value = e;
+      sky?.setOpacity(e);
+      showAround(e);
+    }
     updateClip();
+    if (sky?.dome.visible) {
+      sky.dome.position.copy(camera.position);
+      sky.dome.scale.setScalar(camera.far * 0.9);
+    }
     // Grass blades are smaller than a pixel from far away and would only shimmer.
     if (house?.tufts) house.tufts.visible = camera.position.distanceTo(target) < 40;
     house?.clearForest?.(camera.position);
@@ -1705,6 +1795,7 @@ export function createHouseScene(host: HTMLElement, opts: SceneOptions): SceneHa
     reveal,
     setProgress,
     setActive,
+    setSurroundings,
     ready,
     dispose: () => {
       cancelAnimationFrame(raf);
@@ -1718,6 +1809,9 @@ export function createHouseScene(host: HTMLElement, opts: SceneOptions): SceneHa
       el.removeEventListener("dblclick", onDouble);
       disposed = true;
       sky?.dispose();
+      photos?.aerial.dispose();
+      photos?.wide?.dispose();
+      photos?.close?.dispose();
       house?.dispose();
       surfaces?.dispose();
       renderer.dispose();
