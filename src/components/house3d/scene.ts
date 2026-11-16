@@ -20,7 +20,8 @@ import {
 export type ViewMode = "orbit" | "door";
 export type SceneHandle = {
   back: () => void;
-  reveal: () => void;
+  /** Leave the photo's viewpoint for the free view, over `ms` milliseconds. */
+  reveal: (ms?: number) => void;
   /** Scroll-driven use: 0 = the photo's viewpoint, 1 = the free view that can be dragged. */
   setProgress: (p: number) => void;
   /** Pause drawing while the scene is off screen or still covered by the photo. */
@@ -1074,8 +1075,8 @@ export function createHouseScene(host: HTMLElement, opts: SceneOptions): SceneHa
     if (mode === "door" || (mode === "moving" && tween)) toOrbit();
   };
   /** Leave the photo's viewpoint: pull back and rise to the home view. */
-  const reveal = () => {
-    if (mode === "photo") toOrbit(3800);
+  const reveal = (ms = 3800) => {
+    if (mode === "photo") toOrbit(ms);
   };
 
   // -- Sizing ---------------------------------------------------------------

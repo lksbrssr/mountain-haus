@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { House3D } from "./House3D";
+import { House3D, heroPhotoRect, preloadCutout, type Rect } from "./House3D";
 
 // The interactive 3D "virtual visit" as a full-screen pop-out that can be opened
 // from anywhere (hero or nav). The open state is mirrored in the URL (?visit=1) so a
@@ -11,12 +11,18 @@ import { House3D } from "./House3D";
 const PARAM = "visit";
 const CHANGE_EVENT = "visitchange";
 
+// Opened by a button while the landing-page photo is on screen, the house lifts out of that
+// photo and flies into the pop-out (see House3D). `flyFrom` is where the photo sits at that
+// moment. Shared links, Back/Forward and other pages open straight to the model.
+let flyFrom: Rect | null = null;
+
 const hasVisitParam = () =>
   typeof window !== "undefined" &&
   new URLSearchParams(window.location.search).has(PARAM);
 
 export function openVirtualVisit() {
   if (hasVisitParam()) return;
+  flyFrom = heroPhotoRect();
   const url = new URL(window.location.href);
   url.searchParams.set(PARAM, "1");
   window.history.pushState({ visit: true }, "", url);
@@ -54,10 +60,15 @@ export function VisitButton({
 
 export function VisitOverlay() {
   const [open, setOpen] = useState(false);
+  const [from, setFrom] = useState<Rect | null>(null);
 
   // Derive open state from the URL, on mount and on any change (Back/Forward too).
   useEffect(() => {
-    const sync = () => setOpen(hasVisitParam());
+    const sync = () => {
+      setFrom(flyFrom); // set only by a button press just now
+      flyFrom = null;
+      setOpen(hasVisitParam());
+    };
     sync();
     window.addEventListener(CHANGE_EVENT, sync);
     window.addEventListener("popstate", sync);
@@ -81,6 +92,12 @@ export function VisitOverlay() {
     };
   }, [open]);
 
+  // Fetch the cut-out of the house once the page has settled, so the flight starts at once.
+  useEffect(() => {
+    const t = setTimeout(() => void preloadCutout().catch(() => undefined), 1200);
+    return () => clearTimeout(t);
+  }, []);
+
   if (!open) return null;
 
   return (
@@ -88,11 +105,12 @@ export function VisitOverlay() {
       role="dialog"
       aria-modal="true"
       aria-label="Virtual visit"
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-ink/70 p-0 sm:p-4"
+      className={`fixed inset-0 z-[100] flex items-center justify-center bg-ink/70 p-0 sm:p-4 ${from ? "visit-in" : ""}`}
     >
       <div className="relative h-full w-full overflow-hidden bg-cream shadow-soft sm:h-[92vh] sm:max-w-6xl sm:rounded-3xl">
-        {/* Mounted fresh each time the pop-out opens; straight to the 3D model. */}
-        <House3D hideChrome instant />
+        {/* Mounted fresh each time the pop-out opens: with the flight when opened from the
+            landing-page photo, otherwise straight to the 3D model. */}
+        <House3D hideChrome instant={!from} flyFrom={from} />
 
         <button
           type="button"
