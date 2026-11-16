@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Fraunces, Inter } from "next/font/google";
 import { house } from "@/lib/house";
+import { VisitOverlay } from "@/components/house3d/VisitModal";
 import "./globals.css";
 
 const display = Fraunces({
@@ -19,7 +20,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${display.variable} ${sans.variable}`}>
-      <body className="grain font-sans antialiased">{children}</body>
+      <body className="grain font-sans antialiased">
+        {children}
+        <VisitOverlay />
+      </body>
     </html>
   );
 }
