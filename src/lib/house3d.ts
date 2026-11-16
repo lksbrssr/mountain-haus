@@ -217,6 +217,19 @@ export const walls: Wall[] = [
   },
 ];
 
+/**
+ * Which bookable room sits behind a clickable door. Only doors listed here get a
+ * marker in the 3D view; hovering shows the room's photos, clicking opens its page.
+ * (Keyed by the door `id` in `walls`; the numbers are the markers' old labels.)
+ */
+export const doorRooms: Record<string, string> = {
+  studio: "the-studio", // 2
+  "south-balcony-west": "luxury", // 3
+  "south-balcony-east": "mountain-view", // 4
+  "east-balcony": "kids-paradise", // 5
+  "attic-west-north": "attic", // 13 (one marker for the attic)
+};
+
 type Pt = [number, number];
 type Edge = [Pt, Pt];
 

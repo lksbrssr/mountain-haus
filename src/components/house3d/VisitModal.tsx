@@ -1,7 +1,9 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { House3D, heroPhotoRect, preloadCutout, type Rect } from "./House3D";
+import { preloadHouseTextures } from "./scene";
 
 // The interactive 3D "virtual visit" as a full-screen pop-out that can be opened
 // from anywhere (hero or nav). The open state is mirrored in the URL (?visit=1) so a
@@ -51,8 +53,26 @@ export function VisitButton({
   children: ReactNode;
   className?: string;
 }) {
+  // Warm the model's textures while the page is idle (and again if the pointer heads
+  // for the button), so opening the pop-out doesn't wait on cold fetches.
+  useEffect(() => {
+    const idle = typeof window.requestIdleCallback === "function";
+    const id = idle
+      ? window.requestIdleCallback(preloadHouseTextures)
+      : window.setTimeout(preloadHouseTextures, 1200);
+    return () => {
+      if (idle) window.cancelIdleCallback(id);
+      else window.clearTimeout(id);
+    };
+  }, []);
   return (
-    <button type="button" onClick={openVirtualVisit} className={className}>
+    <button
+      type="button"
+      onClick={openVirtualVisit}
+      onPointerEnter={preloadHouseTextures}
+      onFocus={preloadHouseTextures}
+      className={className}
+    >
       {children}
     </button>
   );
@@ -61,6 +81,7 @@ export function VisitButton({
 export function VisitOverlay() {
   const [open, setOpen] = useState(false);
   const [from, setFrom] = useState<Rect | null>(null);
+  const pathname = usePathname();
 
   // Derive open state from the URL, on mount and on any change (Back/Forward too).
   useEffect(() => {
@@ -77,6 +98,13 @@ export function VisitOverlay() {
       window.removeEventListener("popstate", sync);
     };
   }, []);
+
+  // Client navigation (e.g. clicking a room in the model) changes the route without a
+  // popstate event, so re-check whenever the path changes — this closes the model when
+  // it opens a room page.
+  useEffect(() => {
+    setOpen(hasVisitParam());
+  }, [pathname]);
 
   useEffect(() => {
     if (!open) return;

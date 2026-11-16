@@ -1,11 +1,13 @@
 "use client";
 
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { SiteHeader } from "@/components/Chrome";
 import { house } from "@/lib/house";
-import { createHouseScene, type SceneHandle, type ViewMode } from "./scene";
+import { getRoom } from "@/lib/rooms";
+import { createHouseScene, type RoomHover, type SceneHandle, type ViewMode } from "./scene";
 
 // Three ways in:
 //  - /visit page: opens on the landing-page photo, laid out exactly as on the landing
@@ -24,9 +26,9 @@ export type Rect = { left: number; top: number; width: number; height: number };
 // The cut-out is the whole photo frame with everything but the house transparent: a JPEG
 // for the colours and a PNG whose alpha is the shape of the house.
 export const CUTOUT = { image: "/house3d/cutout.jpg", mask: "/house3d/cutout-mask.png", w: 1871, h: 1041 };
-const FLY_MS = 1100; // the house travels from the page into the pop-up
-const MORPH_MS = 800; // the cut-out dissolves into the 3D model
-const PULL_MS = 2600; // the camera pulls back to the free view
+const FLY_MS = 560; // the house travels from the page into the pop-up
+const MORPH_MS = 420; // the cut-out dissolves into the 3D model
+const PULL_MS = 1300; // the camera pulls back to the free view
 
 const loadImage = (src: string) =>
   new Promise<void>((resolve, reject) => {
@@ -70,6 +72,8 @@ export function House3D({
   const [modelReady, setModelReady] = useState(false);
   const [touch, setTouch] = useState(false);
   const [flying, setFlying] = useState(!!flyFrom);
+  const [hover, setHover] = useState<RoomHover | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
     const host = hostRef.current;
@@ -94,6 +98,8 @@ export function House3D({
     const scene = createHouseScene(host, {
       photo: still ? null : fly ? frame : photoRef.current,
       onMode: setMode,
+      onHover: setHover,
+      onOpen: (slug) => router.push(`/rooms/${slug}`),
     });
     sceneRef.current = scene;
     scene.ready.then(() => setModelReady(true));
@@ -198,12 +204,13 @@ export function House3D({
     return () => clearTimeout(t);
   }, [phase]);
 
+  const hoverRoom = hover ? getRoom(hover.slug) : undefined;
   const hint =
     mode === "door"
       ? "drag to look around"
       : touch
-        ? "drag to rotate · pinch to zoom · tap a door"
-        : "drag to rotate · scroll to zoom · double-click to reset · click a door";
+        ? "drag to rotate · pinch to zoom · tap a room marker"
+        : "drag to rotate · scroll to zoom · double-click to reset · hover a room marker";
 
   return (
     <div className="relative h-full min-h-[560px] w-full select-none overflow-hidden bg-cream">
@@ -266,6 +273,37 @@ export function House3D({
             <div className="absolute inset-0 bg-gradient-to-b from-ink/40 via-ink/10 to-ink/70" />
           </div>
         )
+      )}
+
+      {hoverRoom && hover && (
+        <div
+          className="pointer-events-none absolute z-30 w-60"
+          style={{
+            left: hover.x,
+            top: hover.y,
+            transform: "translate(-50%, calc(-100% - 20px))",
+          }}
+        >
+          <div className="overflow-hidden rounded-2xl bg-cream shadow-soft ring-1 ring-ink/10">
+            <div className="flex gap-0.5">
+              {hoverRoom.images.length > 0 ? (
+                hoverRoom.images.slice(0, 2).map((src) => (
+                  <div key={src} className="relative h-28 flex-1">
+                    <Image src={src} alt="" fill sizes="240px" className="object-cover" />
+                  </div>
+                ))
+              ) : (
+                <div className="flex h-28 flex-1 items-center justify-center bg-sand text-xs text-pine">
+                  Photo coming soon
+                </div>
+              )}
+            </div>
+            <div className="px-3 py-2">
+              <p className="font-display text-sm text-ink">{hoverRoom.name}</p>
+              <p className="mt-0.5 text-xs leading-snug text-pine">{hoverRoom.short}</p>
+            </div>
+          </div>
+        </div>
       )}
 
       {!hideChrome && <SiteHeader light={phase === "photo"} />}

@@ -2,6 +2,7 @@ import * as THREE from "three";
 import {
   balconies,
   chimney,
+  doorRooms,
   drive,
   entranceSteps,
   paving,
@@ -62,7 +63,14 @@ const EYE = 1.65;
 const FOV_ORBIT = 32;
 const FOV_DOOR = 68;
 
-type Door = { id: string; eye: THREE.Vector3; look: THREE.Vector3; hit: THREE.Mesh; dot: THREE.Sprite };
+type Door = {
+  id: string;
+  room: string;
+  eye: THREE.Vector3;
+  look: THREE.Vector3;
+  hit: THREE.Mesh;
+  dot: THREE.Sprite;
+};
 
 // ---------------------------------------------------------------------------
 // Textures drawn in code. They stand in until real surfaces are generated.
@@ -157,6 +165,18 @@ const SURFACE_FILES = {
   paving: { url: "/house3d/paving.jpg", size: 4.5 },
   grass: { url: "/house3d/grass.jpg", size: 3.0 },
 } as const;
+/**
+ * Warm the browser cache with the house's surface images so the pop-out can build the
+ * model the instant it opens instead of waiting on five cold fetches. Safe to call often.
+ */
+export function preloadHouseTextures() {
+  if (typeof window === "undefined") return;
+  for (const key of Object.keys(SURFACE_FILES) as (keyof typeof SURFACE_FILES)[]) {
+    const img = new Image();
+    img.src = SURFACE_FILES[key].url;
+  }
+}
+
 // Some images are lightened in code: the lawn so the ground stays calm next to the house,
 // the paving because the real stones are a lighter grey than the generated ones.
 const WASH: Partial<Record<keyof typeof SURFACE_FILES, { color: string; amount: number }>> = {
@@ -230,9 +250,6 @@ function buildHouse(surf: Surfaces) {
   const group = new THREE.Group();
   const doors: Door[] = [];
   const disposables: { dispose: () => void }[] = [];
-
-  const dotMap = dotTexture();
-  disposables.push(dotMap);
 
   const std = (p: THREE.MeshStandardMaterialParameters) => {
     const m = new THREE.MeshStandardMaterial({ roughness: 0.92, metalness: 0, ...p });
@@ -560,6 +577,9 @@ function buildHouse(surf: Surfaces) {
       }
 
       if (o.kind === "door" && o.id) {
+        // Only doors in front of a bookable room get a marker.
+        const room = doorRooms[o.id];
+        if (!room) continue;
         // An invisible panel that catches the pointer, plus a marker dot.
         const hitMat = new THREE.MeshBasicMaterial({
           color: "#f6f1e7",
@@ -578,6 +598,8 @@ function buildHouse(surf: Surfaces) {
         const py = y0 + dy * uc;
         const stand = o.stand ?? LEVEL.ground;
         const out = o.out ?? 2;
+        const dotMap = dotTexture();
+        disposables.push(dotMap);
         const dotMat = new THREE.SpriteMaterial({ map: dotMap, sizeAttenuation: false, depthWrite: false });
         disposables.push(dotMat);
         const dot = new THREE.Sprite(dotMat);
@@ -587,6 +609,7 @@ function buildHouse(surf: Surfaces) {
 
         doors.push({
           id: o.id,
+          room,
           eye: P(px + dy * out, py - dx * out, stand + EYE),
           look: P(px, py, stand + EYE - 0.25),
           hit,
@@ -878,11 +901,17 @@ const PHOTO = {
 /** Focal length in screen pixels, and where the optical centre sits on the canvas. */
 type Projection = { f: number; cx: number; cy: number };
 
+export type RoomHover = { slug: string; x: number; y: number };
+
 export type SceneOptions = {
   /** The element showing the hero photo. With it, the scene opens on the photo's viewpoint. */
   photo: HTMLElement | null;
   /** Called with the current view, or null while the camera is being moved by scrolling. */
   onMode: (m: ViewMode | null) => void;
+  /** A room marker is hovered (with its position on the canvas), or null when none is. */
+  onHover?: (h: RoomHover | null) => void;
+  /** A room marker was clicked: open that room. */
+  onOpen?: (slug: string) => void;
   /** The camera follows setProgress() instead of playing the opening on a timer. */
   scrollDriven?: boolean;
   /** The scene sits inside a scrolling page: the wheel and vertical swipes scroll the page. */
@@ -890,7 +919,7 @@ export type SceneOptions = {
 };
 
 export function createHouseScene(host: HTMLElement, opts: SceneOptions): SceneHandle {
-  const { photo, onMode } = opts;
+  const { photo, onMode, onHover, onOpen } = opts;
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -1139,11 +1168,21 @@ export function createHouseScene(host: HTMLElement, opts: SceneOptions): SceneHa
   const raycaster = new THREE.Raycaster();
   const ndc = new THREE.Vector2();
   let hovered: Door | null = null;
+  const toScreen = (p: THREE.Vector3) => {
+    const v = p.clone().project(camera);
+    return { x: (v.x * 0.5 + 0.5) * size.w, y: (-v.y * 0.5 + 0.5) * size.h };
+  };
   function setHover(d: Door | null) {
     if (hovered === d) return;
     if (hovered) (hovered.hit.material as THREE.MeshBasicMaterial).opacity = 0;
     hovered = d;
-    if (d) (d.hit.material as THREE.MeshBasicMaterial).opacity = 0.32;
+    if (d) {
+      (d.hit.material as THREE.MeshBasicMaterial).opacity = 0.32;
+      const s = toScreen(d.dot.position);
+      onHover?.({ slug: d.room, x: s.x, y: s.y });
+    } else {
+      onHover?.(null);
+    }
     el.style.cursor = d ? "pointer" : "grab";
   }
   const doorAt = (clientX: number, clientY: number): Door | null => {
@@ -1207,7 +1246,7 @@ export function createHouseScene(host: HTMLElement, opts: SceneOptions): SceneHa
     el.style.cursor = hovered ? "pointer" : "grab";
     if (click && steady()) {
       const d = doorAt(e.clientX, e.clientY);
-      if (d) goToDoor(d);
+      if (d) onOpen?.(d.room);
     }
   };
   const onWheel = (e: WheelEvent) => {
@@ -1274,7 +1313,7 @@ export function createHouseScene(host: HTMLElement, opts: SceneOptions): SceneHa
       camera.position.copy(look.pos);
       camera.rotation.set(look.pitch, look.yaw, 0, "YXZ");
     }
-    const pulse = 0.024 * clamp(size.w / size.h, 0.45, 1) * (1 + 0.1 * Math.sin(now / 420));
+    const pulse = 0.03 * clamp(size.w / size.h, 0.45, 1) * (1 + 0.1 * Math.sin(now / 420));
     for (const d of house?.doors ?? []) d.dot.scale.set(pulse, pulse, 1);
     renderer.render(scene, camera);
   };

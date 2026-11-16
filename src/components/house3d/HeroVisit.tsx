@@ -1,10 +1,12 @@
 "use client";
 
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { SiteHeader } from "@/components/Chrome";
 import { house } from "@/lib/house";
-import type { SceneHandle, ViewMode } from "./scene";
+import { getRoom } from "@/lib/rooms";
+import type { RoomHover, SceneHandle, ViewMode } from "./scene";
 
 // The landing-page hero. While the visitor scrolls, the page stays pinned and the scroll
 // position drives the picture instead: the text leaves, the photo dissolves into the 3D
@@ -30,6 +32,8 @@ export function HeroVisit({ children }: { children: ReactNode }) {
   const [mode, setMode] = useState<ViewMode | null>(null);
   const [light, setLight] = useState(true);
   const [touch, setTouch] = useState(false);
+  const [hover, setHover] = useState<RoomHover | null>(null);
+  const router = useRouter();
 
   // Load the 3D scene after the page is up, so the hero photo is never held back by it.
   useEffect(() => {
@@ -46,6 +50,8 @@ export function HeroVisit({ children }: { children: ReactNode }) {
         scene = createHouseScene(hostRef.current, {
           photo: photoRef.current,
           onMode: setMode,
+          onHover: setHover,
+          onOpen: (slug) => router.push(`/rooms/${slug}`),
           scrollDriven: true,
           embedded: true,
         });
@@ -113,12 +119,13 @@ export function HeroVisit({ children }: { children: ReactNode }) {
     };
   }, [enabled, ready]);
 
+  const hoverRoom = hover ? getRoom(hover.slug) : undefined;
   const hint =
     mode === "door"
       ? "drag to look around"
       : touch
-        ? "drag to rotate · tap a door"
-        : "drag to rotate · double-click to reset · click a door";
+        ? "drag to rotate · tap a room marker"
+        : "drag to rotate · double-click to reset · hover a room marker";
 
   return (
     <section
@@ -147,6 +154,33 @@ export function HeroVisit({ children }: { children: ReactNode }) {
           <Image src={house.heroImage} alt={house.name} fill priority className="object-cover object-[center_28%]" />
           <div className="absolute inset-0 bg-gradient-to-b from-ink/40 via-ink/10 to-ink/70" />
         </div>
+
+        {hoverRoom && hover && (
+          <div
+            className="pointer-events-none absolute z-30 w-60"
+            style={{ left: hover.x, top: hover.y, transform: "translate(-50%, calc(-100% - 20px))" }}
+          >
+            <div className="overflow-hidden rounded-2xl bg-cream shadow-soft ring-1 ring-ink/10">
+              <div className="flex gap-0.5">
+                {hoverRoom.images.length > 0 ? (
+                  hoverRoom.images.slice(0, 2).map((src) => (
+                    <div key={src} className="relative h-28 flex-1">
+                      <Image src={src} alt="" fill sizes="240px" className="object-cover" />
+                    </div>
+                  ))
+                ) : (
+                  <div className="flex h-28 flex-1 items-center justify-center bg-sand text-xs text-pine">
+                    Photo coming soon
+                  </div>
+                )}
+              </div>
+              <div className="px-3 py-2">
+                <p className="font-display text-sm text-ink">{hoverRoom.name}</p>
+                <p className="mt-0.5 text-xs leading-snug text-pine">{hoverRoom.short}</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         <SiteHeader light={light} />
 
