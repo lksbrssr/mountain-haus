@@ -1,11 +1,23 @@
 import * as THREE from "three";
 import {
+  buildTree,
+  grassTufts,
+  groundShade,
+  imageMean,
+  loadSky,
+  patchyLawn,
+  shadeUv,
+  spruceBelt,
+  type Sky,
+} from "./landscape";
+import {
   balconies,
   chimney,
   doorRooms,
   drive,
   entranceSteps,
   paving,
+  streetBalcony,
   CLAD_T,
   LEVEL,
   ROOF,
@@ -130,6 +142,21 @@ function tilesTexture(base: string) {
   return finish(c);
 }
 
+/** Soft vertical folds for the curtains. */
+function curtainTexture() {
+  const c = document.createElement("canvas");
+  c.width = 256;
+  c.height = 8;
+  const g = c.getContext("2d")!;
+  for (let x = 0; x < c.width; x++) {
+    const fold = 0.5 + 0.5 * Math.cos((x / c.width) * Math.PI * 2 * 9);
+    const v = Math.round(255 * (0.8 + 0.2 * fold));
+    g.fillStyle = `rgb(${v},${v},${Math.round(v * 0.985)})`;
+    g.fillRect(x, 0, 1, c.height);
+  }
+  return finish(c);
+}
+
 function dotTexture() {
   const c = document.createElement("canvas");
   c.width = c.height = 128;
@@ -156,7 +183,18 @@ function dotTexture() {
 // back to a texture drawn in code or to a flat colour.
 // ---------------------------------------------------------------------------
 type Surface = { map: THREE.Texture | null; size: number; color: string };
-type Surfaces = Record<"timber" | "plaster" | "roof" | "paving" | "grass", Surface> & { dispose: () => void };
+type Surfaces = Record<"timber" | "plaster" | "roof" | "paving" | "grass", Surface> & {
+  /** Official aerial photos of the surroundings, laid on the ground beyond the garden: the
+   *  420 m around the house, the village around that, and a sharpened copy of the nearest 100 m. */
+  aerial: THREE.Texture | null;
+  aerialWide: THREE.Texture | null;
+  aerialClose: THREE.Texture | null;
+  dispose: () => void;
+};
+
+const AERIAL_URL = "/house3d/aerial.jpg";
+const AERIAL_WIDE_URL = "/house3d/aerial-wide.jpg";
+const AERIAL_CLOSE_URL: string | null = "/house3d/aerial-close.jpg";
 
 const SURFACE_FILES = {
   timber: { url: "/house3d/timber.jpg", size: 2.1 },
@@ -177,10 +215,9 @@ export function preloadHouseTextures() {
   }
 }
 
-// Some images are lightened in code: the lawn so the ground stays calm next to the house,
-// the paving because the real stones are a lighter grey than the generated ones.
+// The paving image is lightened in code, because the real stones are a lighter grey than the
+// generated ones. (The lawn used to be lightened too, for a calmer look; it now keeps its colour.)
 const WASH: Partial<Record<keyof typeof SURFACE_FILES, { color: string; amount: number }>> = {
-  grass: { color: "#eef0e2", amount: 0.5 },
   paving: { color: "#e9eaee", amount: 0.32 },
 };
 // The real cladding is a little redder than the generated boards.
@@ -216,19 +253,33 @@ async function loadSurfaces(): Promise<Surfaces> {
       return null;
     }
   };
-  const [timber, plaster, roof, paving, grass] = await Promise.all([
+  const loadAerial = async (url: string | null) => {
+    if (!url) return null;
+    try {
+      const t = await loader.loadAsync(url);
+      t.colorSpace = THREE.SRGBColorSpace;
+      t.anisotropy = 8;
+      return t;
+    } catch {
+      return null;
+    }
+  };
+  const [timber, plaster, roof, paving, grass, aerial, aerialWide, aerialClose] = await Promise.all([
     load("timber"),
     load("plaster"),
     load("roof"),
     load("paving"),
     load("grass"),
+    loadAerial(AERIAL_URL),
+    loadAerial(AERIAL_WIDE_URL),
+    loadAerial(AERIAL_CLOSE_URL),
   ]);
   const made: THREE.Texture[] = [];
   const drawn = (t: THREE.Texture) => {
     made.push(t);
     return t;
   };
-  const all = [timber, plaster, roof, paving, grass];
+  const all = [timber, plaster, roof, paving, grass, aerial, aerialWide, aerialClose];
   return {
     timber: timber
       ? { map: timber, size: SURFACE_FILES.timber.size, color: TIMBER_TINT }
@@ -239,6 +290,9 @@ async function loadSurfaces(): Promise<Surfaces> {
       : { map: drawn(tilesTexture(COLOR.roof)), size: 1.2, color: "#ffffff" },
     paving: { map: paving, size: SURFACE_FILES.paving.size, color: paving ? "#ffffff" : COLOR.stone },
     grass: { map: grass, size: SURFACE_FILES.grass.size, color: grass ? "#ffffff" : COLOR.ground },
+    aerial,
+    aerialWide,
+    aerialClose,
     dispose: () => [...all, ...made].forEach((t) => t?.dispose()),
   };
 }
@@ -246,8 +300,10 @@ async function loadSurfaces(): Promise<Surfaces> {
 // ---------------------------------------------------------------------------
 // House
 // ---------------------------------------------------------------------------
-function buildHouse(surf: Surfaces) {
+function buildHouse(surf: Surfaces, small: boolean) {
   const group = new THREE.Group();
+  let tufts: THREE.InstancedMesh | null = null;
+  let clearForest: ((camera: THREE.Vector3) => void) | null = null;
   const doors: Door[] = [];
   const disposables: { dispose: () => void }[] = [];
 
@@ -285,11 +341,26 @@ function buildHouse(surf: Surfaces) {
     timberPlain: std({ color: COLOR.timberDark }),
     door: std({ color: COLOR.door }),
     frame: std({ color: COLOR.frame }),
-    glass: std({ color: COLOR.glass, roughness: 0.25, metalness: 0.1 }),
+    // Window panes: partly see-through, and they mirror the sky and the landscape around.
+    // The mirror is stronger than on real glass, which only shows a few percent head-on:
+    // at this size a faint reflection reads as a black hole.
+    glass: std({
+      color: "#74858c",
+      roughness: 0.04,
+      metalness: 1,
+      transparent: true,
+      opacity: 0.58,
+      envMapIntensity: 1.25,
+    }),
+    glassSolid: std({ color: COLOR.glass, roughness: 0.08, metalness: 0.1 }),
+    // What is behind a pane: a dark room, and a light curtain across the lower part of a window.
+    room: std({ color: "#1a1d1e", roughness: 1, side: THREE.BackSide, envMapIntensity: 0.25 }),
+    curtain: std({ color: "#f4f2ec", roughness: 1, side: THREE.DoubleSide, map: curtainTexture() }),
     shutter: std({ color: COLOR.shutter }),
     stone: metres("paving"),
     garage: metres("timber", "#d9cdc2"),
   };
+  if (mat.curtain.map) disposables.push(mat.curtain.map);
   const boxTimber = (w: number, h: number) => fitted("timber", w, h);
 
   const add = (mesh: THREE.Object3D, parent: THREE.Object3D = group) => {
@@ -535,7 +606,7 @@ function buildHouse(surf: Surfaces) {
             const frame = new THREE.Mesh(new THREE.BoxGeometry(win.w + 0.1, win.h + 0.1, 0.02), mat.frame);
             frame.position.set(wx, wy, front * 0.035);
             add(frame, angled);
-            const glass = new THREE.Mesh(new THREE.BoxGeometry(win.w, win.h, 0.02), mat.glass);
+            const glass = new THREE.Mesh(new THREE.BoxGeometry(win.w, win.h, 0.02), mat.glassSolid);
             glass.position.set(wx, wy, front * 0.042);
             add(glass, angled);
           }
@@ -547,7 +618,23 @@ function buildHouse(surf: Surfaces) {
           WALL_T * 0.25,
         );
       } else {
-        place(new THREE.ShapeGeometry(shape, 16), mat.glass, WALL_T * 0.5);
+        const pane = place(new THREE.ShapeGeometry(shape, 16), mat.glass, WALL_T * 0.5);
+        pane.castShadow = false;
+        // A dark room behind the pane, so the view through it stops there and does not run
+        // through the empty house.
+        const roomDepth = 0.6;
+        const room = new THREE.Mesh(new THREE.BoxGeometry(wd + 0.12, o.h + 0.12, roomDepth), mat.room);
+        room.position.set(uc, (z0 + z1) / 2, WALL_T * 0.5 - 0.03 - roomDepth / 2);
+        add(room, local);
+        room.castShadow = false;
+        if (o.kind === "window" && wd >= 0.6) {
+          // a half-height curtain, as in the photo of the street side
+          const ch = o.h * 0.5;
+          const curtain = new THREE.Mesh(new THREE.PlaneGeometry(wd - 0.05, ch), mat.curtain);
+          curtain.position.set(uc, z0 + 0.03 + ch / 2, WALL_T * 0.5 - 0.07);
+          add(curtain, local);
+          curtain.castShadow = false;
+        }
         const rim = 0.055;
         const ring = outline(new THREE.Shape(), u0, u1, z0, z1, o.arch) as THREE.Shape;
         ring.holes.push(outline(new THREE.Path(), u0 + rim, u1 - rim, z0 + rim, z1 - rim, o.arch));
@@ -684,11 +771,113 @@ function buildHouse(surf: Surfaces) {
     for (const [p, q] of b.aprons ?? []) {
       const len = Math.hypot(q[0] - p[0], q[1] - p[1]);
       const topZ = Math.min(roofUnder(p[1]), roofUnder(q[1])) + 0.05;
-      boxBetween(p, q, topZ - 1.0, topZ, 0.05, boxTimber(len, 1));
+      const drop = b.apronDrop ?? 1;
+      boxBetween(p, q, topZ - drop, topZ, 0.05, boxTimber(len, drop));
     }
     for (const [px, py] of b.posts) {
       const bottom = b.grounded ? LEVEL.ground : b.top;
       slab(px - 0.06, py - 0.06, px + 0.06, py + 0.06, bottom, roofUnder(py) + 0.05, mat.timberPlain);
+    }
+  }
+
+  // -- Street-side balcony: the details seen in the street photo ---------------
+  {
+    const sb = streetBalcony;
+    const deck = balconies.find((b) => b.id === "north")!.top;
+    const cap = deck + 0.93; // top of the railing
+    const wood = mat.timberPlain;
+    // The beam under the hanging boards.
+    slab(sb.x0, sb.front - 0.1, sb.x1, sb.front + 0.02, sb.beamBottom, sb.beamBottom + sb.beamHeight, wood);
+
+    // Turned posts: square where they pass the railing and where they meet the beam, round
+    // and shaped like a baluster in between.
+    const shaftFrom = cap + 0.42;
+    const shaftTo = sb.beamBottom - 0.26;
+    const profile = [
+      [0.06, 0],
+      [0.066, 0.03],
+      [0.046, 0.06],
+      [0.064, 0.2],
+      [0.058, 0.36],
+      [0.04, 0.6],
+      [0.034, 0.8],
+      [0.05, 0.87],
+      [0.062, 0.91],
+      [0.046, 0.95],
+      [0.06, 1],
+    ].map(([r, t]) => new THREE.Vector2(r, t * (shaftTo - shaftFrom)));
+    for (const px of sb.turnedPosts) {
+      const py = sb.front - 0.06;
+      slab(px - 0.06, py - 0.06, px + 0.06, py + 0.06, deck, shaftFrom, wood);
+      slab(px - 0.06, py - 0.06, px + 0.06, py + 0.06, shaftTo, sb.beamBottom, wood);
+      const shaft = new THREE.Mesh(new THREE.LatheGeometry(profile, 16), wood);
+      shaft.position.copy(P(px, py, shaftFrom));
+      add(shaft);
+    }
+
+    // Carved braces between post and beam.
+    for (const { x, reach } of sb.braces) {
+      const cut = new THREE.Shape();
+      cut.moveTo(0, 0);
+      cut.lineTo(0.36 * reach, 0);
+      cut.lineTo(0.36 * reach, -0.07);
+      cut.quadraticCurveTo(0.2 * reach, -0.07, 0.15 * reach, -0.17);
+      cut.quadraticCurveTo(0.2 * reach, -0.24, 0.11 * reach, -0.29);
+      cut.quadraticCurveTo(0.1 * reach, -0.37, 0, -0.37);
+      cut.closePath();
+      const brace = new THREE.Mesh(new THREE.ExtrudeGeometry(cut, { depth: 0.1, bevelEnabled: false }), wood);
+      brace.position.copy(P(x, sb.front, sb.beamBottom));
+      add(brace);
+    }
+
+    // Beam ends under the deck.
+    for (const x of sb.consoles) {
+      slab(x - 0.08, 8.99, x + 0.08, sb.front - 0.02, deck - 0.34, deck - 0.14, wood);
+    }
+
+    // Flower boxes on the outside of the railing, with a low mound of leaves and flowers.
+    const boxMat = std({ color: "#9a5b3c" });
+    const leaf = std({ color: "#4f7a3c", roughness: 1 });
+    const blooms = [std({ color: "#d8558c", roughness: 1 }), std({ color: "#f0c63a", roughness: 1 }), std({ color: "#8d5fb5", roughness: 1 })];
+    const ball = new THREE.IcosahedronGeometry(1, 1);
+    disposables.push(ball);
+    let seed = 5;
+    const rnd = () => ((seed = (seed * 16807) % 2147483647) % 1000) / 1000;
+    sb.flowerBoxes.forEach(([xa, xb], n) => {
+      slab(xa, sb.front + 0.03, xb, sb.front + 0.21, cap - 0.2, cap - 0.02, boxMat);
+      const count = Math.round((xb - xa) / 0.07);
+      for (let i = 0; i < count; i++) {
+        const x = xa + 0.05 + ((xb - xa - 0.1) * (i + rnd() * 0.6)) / count;
+        const y = sb.front + 0.08 + rnd() * 0.08;
+        const green = new THREE.Mesh(ball, leaf);
+        green.position.copy(P(x, y, cap + 0.01 + rnd() * 0.03));
+        green.scale.set(0.055, 0.05 + rnd() * 0.03, 0.055);
+        green.castShadow = true;
+        group.add(green);
+        if (rnd() < 0.75) {
+          // the box nearer the corner is mostly yellow and pink, the other pink and violet
+          const bloom = new THREE.Mesh(ball, blooms[n === 1 ? (rnd() < 0.6 ? 1 : 0) : rnd() < 0.5 ? 0 : 2]);
+          bloom.position.copy(P(x + (rnd() - 0.5) * 0.04, y, cap + 0.09 + rnd() * 0.1));
+          bloom.scale.setScalar(0.026 + rnd() * 0.014);
+          group.add(bloom);
+        }
+      }
+    });
+
+    // Thin metal rails above the railing, on small uprights.
+    const metal = std({ color: "#3b3f42", roughness: 0.45, metalness: 0.7 });
+    const railY = sb.front + 0.02;
+    const railX0 = sb.x0;
+    const railX1 = sb.x1 - 0.05;
+    for (const h of sb.metalRails) {
+      const rail = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, railX1 - railX0, 8), metal);
+      rail.rotation.z = Math.PI / 2;
+      rail.position.copy(P((railX0 + railX1) / 2, railY, cap + h));
+      add(rail);
+    }
+    const top = Math.max(...sb.metalRails);
+    for (let x = railX0 + 0.04; x <= railX1 + 0.001; x += (railX1 - railX0 - 0.08) / 4) {
+      slab(x - 0.01, railY - 0.01, x + 0.01, railY + 0.01, cap, cap + top, metal);
     }
   }
 
@@ -719,6 +908,7 @@ function buildHouse(surf: Surfaces) {
       geo.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
       geo.setIndex(idx);
       geo.computeVertexNormals();
+      shadeUv(geo, CX, CY);
       const mesh = new THREE.Mesh(geo, material);
       mesh.receiveShadow = true;
       disposables.push(geo);
@@ -757,6 +947,7 @@ function buildHouse(surf: Surfaces) {
       geo.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
       geo.setIndex(idx);
       geo.computeVertexNormals();
+      shadeUv(geo, CX, CY);
       const mesh = new THREE.Mesh(geo, material);
       mesh.receiveShadow = true;
       disposables.push(geo);
@@ -772,6 +963,37 @@ function buildHouse(surf: Surfaces) {
     // The sloped ground near the house, and a flat lawn around it out to the horizon.
     const near = { x0: -26, x1: 46, y0: -26, y1: 46 };
     const lawn = metres("grass");
+    // Soft shading next to the walls and under the balconies, on lawn and paving alike.
+    const footprint = walls.map((w) => w.from);
+    const shade = groundShade(footprint, balconies.map((b) => b.rect));
+    disposables.push(shade);
+    lawn.aoMap = shade;
+    mat.stone.aoMap = shade;
+    const grassImage = surf.grass.map?.image as CanvasImageSource | undefined;
+    const grassMean = grassImage ? imageMean(grassImage) : null;
+    // The garden stays modelled lawn. Beyond it the ground shows the official aerial photo:
+    // the turning circle that the drive runs into, the road past the east side, the
+    // neighbours' roofs and the forest, each in its place.
+    const garden = { x0: -5, x1: 12.6, y0: -6, y1: 16 };
+    if (grassMean) {
+      patchyLawn(
+        lawn,
+        grassMean.luminance,
+        surf.aerial
+          ? {
+              aerial: surf.aerial,
+              wide: surf.aerialWide,
+              close: surf.aerialClose,
+              keep: [garden.x0 - CX, garden.x1 - CX, garden.y0 - CY, garden.y1 - CY],
+            }
+          : undefined,
+      );
+    }
+    // The generated grass image is a deep green; the real lawn is lighter. The tint sits between
+    // the earlier, yellower one and the colour of the lawns in the aerial photo, so the garden
+    // and the ground beyond it are close in colour where they meet.
+    const LAWN_LIFT = new THREE.Color(1.24, 1.4, 1.15);
+    lawn.color.copy(LAWN_LIFT);
     const foot = entranceSteps.xTop - entranceSteps.count * entranceSteps.tread - 0.05;
     draped(
       // finer around the entrance, where steps, bank and walkway meet
@@ -782,7 +1004,7 @@ function buildHouse(surf: Surfaces) {
     );
     {
       const far = new THREE.Shape();
-      const R = 240;
+      const R = 4000;
       far.moveTo(-R, -R);
       far.lineTo(R, -R);
       far.lineTo(R, R);
@@ -798,6 +1020,7 @@ function buildHouse(surf: Surfaces) {
       const geo = new THREE.ShapeGeometry(far);
       geo.rotateX(-Math.PI / 2);
       geo.translate(0, LEVEL.ground, 0);
+      shadeUv(geo, CX, CY);
       const mesh = new THREE.Mesh(geo, lawn);
       mesh.receiveShadow = true;
       disposables.push(geo);
@@ -813,6 +1036,7 @@ function buildHouse(surf: Surfaces) {
       const geo = new THREE.ExtrudeGeometry(paved, { depth: 0.13, bevelEnabled: false });
       geo.rotateX(-Math.PI / 2); // lay the plan flat: north points to -z, the thickness points up
       geo.translate(0, g - 0.1, 0);
+      shadeUv(geo, CX, CY);
       add(new THREE.Mesh(geo, mat.stone));
     }
 
@@ -848,27 +1072,87 @@ function buildHouse(surf: Surfaces) {
       }
     }
 
-    // A few trees for scale.
-    const treeMat = std({ color: COLOR.tree, roughness: 1 });
-    const trunkMat = std({ color: COLOR.trunk, roughness: 1 });
-    const trees: [number, number, number][] = [
-      [15.5, 13.5, 6.5],
-      [-6.5, -4.5, 5.2],
-      [16.5, -3, 4.4],
-      [-7.5, 12.5, 3.6],
+    // Grass standing on the lawn near the house (not on paving, drive, walkway or steps).
+    const inside = (poly: [number, number][], x: number, y: number) => {
+      let hit = false;
+      for (let a = 0, b = poly.length - 1; a < poly.length; b = a++) {
+        const [xa, ya] = poly[a];
+        const [xb, yb] = poly[b];
+        if (ya > y !== yb > y && x < ((xb - xa) * (y - ya)) / (yb - ya) + xa) hit = !hit;
+      }
+      return hit;
+    };
+    const [wax, way] = walkway.from;
+    const [wbx, wby] = walkway.to;
+    const wlen = Math.hypot(wbx - wax, wby - way);
+    const isLawn = (x: number, y: number) => {
+      if (x < garden.x0 || x > garden.x1 || y < garden.y0 || y > garden.y1) return false;
+      if (inside(footprint, x, y) || inside(paving, x, y)) return false;
+      if (x > drive.x0 - 0.05 && x < drive.x1 + 0.05 && y > 8.99 && y < 8.99 + drive.length) return false;
+      const st = entranceSteps;
+      if (x > st.xTop - st.count * st.tread - 0.1 && x < drive.x0 + 0.1 && y > 8.9 && y < 8.99 + st.width + 0.1) return false;
+      const t = Math.min(wlen, Math.max(0, ((x - wax) * (wbx - wax) + (y - way) * (wby - way)) / wlen));
+      const dx = x - (wax + ((wbx - wax) * t) / wlen);
+      const dy = y - (way + ((wby - way) * t) / wlen);
+      return Math.hypot(dx, dy) > walkway.width / 2 + 0.1;
+    };
+    if (grassMean) {
+      const made = grassTufts({
+        count: small ? 12000 : 36000,
+        area: [-6, -7, 17, 18],
+        isLawn,
+        place: (x, y) => P(x, y, terrainHeight(x, y)),
+        color: grassMean.color.clone().multiply(LAWN_LIFT),
+      });
+      disposables.push(made);
+      group.add(made.mesh);
+      tufts = made.mesh;
+    }
+
+    // Trees where the aerial photo shows them: the broad-leaved tree on the island of the turning circle,
+    // the trees north-east of it and across the road, a bush by the circle, and the dark trees
+    // close to the west side (the ones seen through the balcony in the street photo).
+    // None stands between the street-side viewpoints and the house.
+    const trees: ["spruce" | "leafy", number, number, number][] = [
+      ["leafy", 2.3, 29.4, 9.5],
+      ["leafy", 16.8, 30.4, 9],
+      ["leafy", 21.2, 9.7, 6],
+      ["leafy", -4.9, 23.7, 4.5],
+      ["spruce", -7.6, 3.4, 10],
+      ["leafy", -7.4, -2.8, 8],
     ];
-    for (const [tx, ty, th] of trees) {
-      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.18, th * 0.25, 10), trunkMat);
-      const base = terrainHeight(tx, ty);
-      trunk.position.copy(P(tx, ty, base + th * 0.125));
-      add(trunk);
-      const crown = new THREE.Mesh(new THREE.ConeGeometry(th * 0.26, th * 0.85, 14), treeMat);
-      crown.position.copy(P(tx, ty, base + th * 0.2 + th * 0.425));
-      add(crown);
+    trees.forEach(([kind, tx, ty, th], n) => {
+      const tree = buildTree(kind, th, 11 + n * 7, null);
+      tree.group.position.copy(P(tx, ty, terrainHeight(tx, ty) - 0.05));
+      disposables.push(tree);
+      group.add(tree.group);
+    });
+
+    // The edge of the forest that climbs the hillside north of the house (traced on the aerial).
+    if (surf.aerial) {
+      const belt = spruceBelt({
+        edge: [
+          [-78, 102],
+          [-50, 95],
+          [-38, 78],
+          [-11, 73],
+          [22, 76],
+          [49, 73],
+          [87, 75],
+          [121, 76],
+          [177, 77],
+        ],
+        count: small ? 90 : 150,
+        depth: 34,
+        place: (x, y, lift) => P(x, y, LEVEL.ground + lift - 0.3),
+      });
+      disposables.push(belt);
+      group.add(belt.mesh);
+      clearForest = belt.clear;
     }
   }
 
-  return { group, doors, dispose: () => disposables.forEach((d) => d.dispose()) };
+  return { group, doors, tufts, clearForest, dispose: () => disposables.forEach((d) => d.dispose()) };
 }
 
 // ---------------------------------------------------------------------------
@@ -938,7 +1222,9 @@ export function createHouseScene(host: HTMLElement, opts: SceneOptions): SceneHa
   scene.background = new THREE.Color(COLOR.sky);
   scene.fog = new THREE.Fog(COLOR.sky, 35, 150);
 
-  scene.add(new THREE.HemisphereLight("#ffffff", "#cfc8b6", 1.25));
+  // Until the sky has loaded, a plain light from above stands in for it.
+  const skyFill = new THREE.HemisphereLight("#ffffff", "#cfc8b6", 1.25);
+  scene.add(skyFill);
   const sun = new THREE.DirectionalLight("#fff3df", 2.1);
   sun.position.copy(P(-12, 12, 24));
   sun.target.position.set(0, 2, 0);
@@ -954,6 +1240,8 @@ export function createHouseScene(host: HTMLElement, opts: SceneOptions): SceneHa
   sun.shadow.normalBias = 0.03;
   scene.add(sun, sun.target);
   const fill = new THREE.DirectionalLight("#ffffff", 0.55);
+  const small = window.matchMedia("(pointer: coarse)").matches;
+  let sky: Sky | null = null;
   fill.position.copy(P(20, -14, 12));
   scene.add(fill);
 
@@ -967,13 +1255,27 @@ export function createHouseScene(host: HTMLElement, opts: SceneOptions): SceneHa
     dotsOn = on;
     house?.doors.forEach((d) => (d.dot.visible = on));
   };
-  const ready = loadSurfaces().then((loaded) => {
+  // The sky photo is the backdrop and the main source of soft light. With it in place the
+  // stand-in lights are turned down, and the far lawn fades into the colour of the distance.
+  const skyReady = loadSky(renderer, scene, small).then((loaded) => {
+    if (!loaded) return;
+    if (disposed) {
+      loaded.dispose();
+      return;
+    }
+    sky = loaded;
+    scene.environmentIntensity = 0.9;
+    skyFill.intensity = 0.2;
+    fill.intensity = 0.2;
+    if (scene.fog) scene.fog.color.copy(loaded.haze);
+  });
+  const ready = Promise.all([loadSurfaces(), skyReady]).then(([loaded]) => {
     if (disposed) {
       loaded.dispose();
       return;
     }
     surfaces = loaded;
-    house = buildHouse(loaded);
+    house = buildHouse(loaded, small);
     scene.add(house.group);
     house.group.traverse((o) => {
       if (o instanceof THREE.Mesh || o instanceof THREE.Sprite) pickables.push(o);
@@ -1019,6 +1321,9 @@ export function createHouseScene(host: HTMLElement, opts: SceneOptions): SceneHa
   const HOME = { yaw: Math.PI + 0.38, pitch: 0.3 };
   let fit = 40;
   const orbit = { yaw: HOME.yaw, pitch: HOME.pitch, zoom: 1, tYaw: HOME.yaw, tPitch: HOME.pitch, tZoom: 1 };
+  // How far the free view may pull back: far enough to see the village around the house.
+  const MAX_AWAY = 430;
+  const maxZoom = () => Math.max(1.7, MAX_AWAY / fit);
   const orbitPose = (yaw: number, pitch: number, zoom: number) => {
     const d = fit * zoom;
     const pos = new THREE.Vector3(
@@ -1129,10 +1434,6 @@ export function createHouseScene(host: HTMLElement, opts: SceneOptions): SceneHa
     const hHalf = Math.atan((Math.tan(v) * size.w) / size.h);
     fit = Math.max(11.5 / Math.tan(hHalf), 8.2 / Math.tan(v));
     // On a tall, narrow screen the camera stands much further back, so the haze moves with it.
-    if (scene.fog instanceof THREE.Fog) {
-      scene.fog.near = Math.max(35, fit * 0.9);
-      scene.fog.far = Math.max(150, fit * 3.6);
-    }
     if (mode === "photo" || mode === "scroll") current = photoProjection();
     else if (mode === "door") current = centred(FOV_DOOR);
     else if (mode === "orbit") current = centred(FOV_ORBIT);
@@ -1281,7 +1582,7 @@ export function createHouseScene(host: HTMLElement, opts: SceneOptions): SceneHa
       }
     } else if (pointers.size === 2) {
       const s = spread();
-      if (pinch > 0 && mode === "orbit") orbit.tZoom = clamp((orbit.tZoom * pinch) / s, 0.45, 1.7);
+      if (pinch > 0 && mode === "orbit") orbit.tZoom = clamp((orbit.tZoom * pinch) / s, 0.45, maxZoom());
       pinch = s;
       travelled += 20;
     }
@@ -1301,7 +1602,7 @@ export function createHouseScene(host: HTMLElement, opts: SceneOptions): SceneHa
     // Inside a scrolling page the wheel scrolls the page; pinch (ctrl + wheel) still zooms.
     if (opts.embedded && !e.ctrlKey) return;
     e.preventDefault();
-    if (mode === "orbit") orbit.tZoom = clamp(orbit.tZoom * Math.exp(e.deltaY * 0.0012), 0.45, 1.7);
+    if (mode === "orbit") orbit.tZoom = clamp(orbit.tZoom * Math.exp(e.deltaY * 0.0012), 0.45, maxZoom());
   };
   const onDouble = (e: MouseEvent) => {
     if (mode !== "orbit" || doorAt(e.clientX, e.clientY)) return;
@@ -1328,7 +1629,12 @@ export function createHouseScene(host: HTMLElement, opts: SceneOptions): SceneHa
   const updateClip = () => {
     const away = HOUSE_BOX.distanceToPoint(camera.position);
     const near = clamp(away * 0.12, 0.05, 12);
-    const far = Math.max(400, away + 350);
+    const far = Math.max(1100, away * 4 + 900);
+    // The haze starts beyond the house and thickens towards the horizon, however far back the camera is.
+    if (scene.fog instanceof THREE.Fog) {
+      scene.fog.near = Math.max(80, away * 1.6);
+      scene.fog.far = Math.max(420, away * 4.5);
+    }
     if (Math.abs(near - camera.near) > camera.near * 0.02 || Math.abs(far - camera.far) > 1) {
       camera.near = near;
       camera.far = far;
@@ -1383,7 +1689,12 @@ export function createHouseScene(host: HTMLElement, opts: SceneOptions): SceneHa
       camera.rotation.set(look.pitch, look.yaw, 0, "YXZ");
     }
     updateClip();
-    const pulse = 0.03 * clamp(size.w / size.h, 0.45, 1) * (1 + 0.1 * Math.sin(now / 420));
+    // Grass blades are smaller than a pixel from far away and would only shimmer.
+    if (house?.tufts) house.tufts.visible = camera.position.distanceTo(target) < 40;
+    house?.clearForest?.(camera.position);
+    // Room markers keep their size on screen; pulled far back they shrink, so they do not cover the house.
+    const farBack = Math.min(1, (fit * 1.7) / Math.max(1, camera.position.distanceTo(target)));
+    const pulse = 0.03 * clamp(size.w / size.h, 0.45, 1) * (1 + 0.1 * Math.sin(now / 420)) * Math.max(0.3, farBack);
     for (const d of house?.doors ?? []) d.dot.scale.set(pulse, pulse, 1);
     renderer.render(scene, camera);
   };
@@ -1406,6 +1717,7 @@ export function createHouseScene(host: HTMLElement, opts: SceneOptions): SceneHa
       el.removeEventListener("wheel", onWheel);
       el.removeEventListener("dblclick", onDouble);
       disposed = true;
+      sky?.dispose();
       house?.dispose();
       surfaces?.dispose();
       renderer.dispose();
