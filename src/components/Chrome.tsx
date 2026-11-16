@@ -17,6 +17,9 @@ export function SiteHeader({ light = false }: { light?: boolean }) {
           <Link href="/calendar" className="hidden opacity-80 transition hover:opacity-100 sm:inline">
             Calendar
           </Link>
+          <Link href="/visit" className="hidden opacity-80 transition hover:opacity-100 sm:inline">
+            Virtual Visit
+          </Link>
           <Link href="/#area" className="hidden opacity-80 transition hover:opacity-100 lg:inline">
             The area
           </Link>
