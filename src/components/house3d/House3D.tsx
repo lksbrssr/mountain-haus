@@ -107,8 +107,20 @@ export function House3D({
     scene.ready.then(() => setModelReady(true));
     // The pop-out around this view. It waits invisible when a flight was asked for.
     const shell = host.closest<HTMLElement>('[role="dialog"]');
+    // The pop-out's CSS has a fallback fade (.visit-wait) that starts from invisible after 3 s,
+    // in case this script never runs. From here on the script controls the fade, so the
+    // fallback is switched off. Left on, it restarted from invisible during the camera's
+    // pull-back, and the page behind flashed through for a moment.
+    if (shell) {
+      shell.style.animation = "none";
+      shell.style.opacity = still ? "1" : "0";
+    }
+    const showShell = () => {
+      if (!shell) return;
+      shell.getAnimations().forEach((a) => a.cancel());
+      shell.style.opacity = "1";
+    };
     if (still) {
-      if (shell) shell.style.opacity = "1";
       setFlying(false);
       setPhase("model");
       setMode("orbit");
@@ -150,7 +162,7 @@ export function House3D({
             ],
             { duration: FLY_MS, easing: "cubic-bezier(0.65, 0, 0.35, 1)", fill: "forwards" },
           ).finished;
-          if (shell) shell.style.opacity = "1";
+          showShell();
           await scene.ready;
           if (cancelled) return;
           // Landed: the 3D model is underneath, seen from the same spot. Dissolve into it.
@@ -167,7 +179,7 @@ export function House3D({
           await wait(MORPH_MS * 0.4);
         } catch {
           // Cut-out missing or too slow: skip the flight and show the model.
-          if (shell) shell.style.opacity = "1";
+          showShell();
           host.style.opacity = "1";
           scene.reveal(600);
         }
@@ -179,6 +191,7 @@ export function House3D({
 
     return () => {
       cancelled = true;
+      showShell();
       scene.dispose();
       sceneRef.current = null;
     };
