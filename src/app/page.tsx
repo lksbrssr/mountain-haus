@@ -56,37 +56,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Virtual visit */}
-      <section id="visit" className="mx-auto max-w-6xl px-6 py-20">
-        <div className="relative overflow-hidden rounded-3xl border border-clay/30 shadow-soft">
-          <Image
-            src={house.heroImage}
-            alt={house.name}
-            width={1600}
-            height={900}
-            className="h-[340px] w-full object-cover object-[center_28%] sm:h-[420px]"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-ink/70 via-ink/20 to-transparent" />
-          <div className="absolute inset-0 flex flex-col justify-end p-8 sm:p-10">
-            <p className="font-sans text-sm uppercase tracking-[0.25em] text-cream/80">
-              Step inside
-            </p>
-            <h2 className="mt-2 max-w-xl font-display text-3xl text-cream sm:text-4xl">
-              Take a virtual visit
-            </h2>
-            <p className="mt-3 max-w-xl leading-relaxed text-cream/85">
-              Walk around a 3D model of the house — drag to rotate, click a door to step
-              through. Opens right here, no scrolling required.
-            </p>
-            <div className="mt-6">
-              <VisitButton className="rounded-full bg-cream px-6 py-3 text-sm font-medium text-forest transition hover:bg-white">
-                Open the virtual visit →
-              </VisitButton>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* Intro strip */}
       <section className="mx-auto max-w-6xl px-6 py-20">
         <div className="grid gap-10 md:grid-cols-3">

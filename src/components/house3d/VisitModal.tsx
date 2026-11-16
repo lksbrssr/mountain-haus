@@ -59,8 +59,8 @@ export function VisitOverlay() {
       className="fixed inset-0 z-[100] flex items-center justify-center bg-ink/70 p-0 sm:p-4"
     >
       <div className="relative h-full w-full overflow-hidden bg-cream shadow-soft sm:h-[92vh] sm:max-w-6xl sm:rounded-3xl">
-        {/* Mounted fresh each time the pop-out opens. */}
-        <House3D hideChrome />
+        {/* Mounted fresh each time the pop-out opens; straight to the 3D model. */}
+        <House3D hideChrome instant />
 
         <button
           type="button"

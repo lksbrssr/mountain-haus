@@ -13,7 +13,10 @@ type Phase = "photo" | "fading" | "model";
 const HOLD_MS = 450;
 const FADE_MS = 2200;
 
-export function House3D({ hideChrome = false }: { hideChrome?: boolean } = {}) {
+export function House3D({
+  hideChrome = false,
+  instant = false,
+}: { hideChrome?: boolean; instant?: boolean } = {}) {
   const hostRef = useRef<HTMLDivElement>(null);
   const photoRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<SceneHandle | null>(null);
@@ -27,7 +30,7 @@ export function House3D({ hideChrome = false }: { hideChrome?: boolean } = {}) {
     const host = hostRef.current;
     if (!host) return;
     setTouch(window.matchMedia("(pointer: coarse)").matches);
-    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const still = instant || window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const scene = createHouseScene(host, { photo: still ? null : photoRef.current, onMode: setMode });
     sceneRef.current = scene;
     scene.ready.then(() => setModelReady(true));
