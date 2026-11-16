@@ -1046,6 +1046,8 @@ export function createHouseScene(host: HTMLElement, opts: SceneOptions): SceneHa
     toPos: THREE.Vector3;
     toQuat: THREE.Quaternion;
     toProj: () => Projection;
+    /** If set, the camera follows this instead of blending straight from start to end. */
+    path?: (e: number) => { pos: THREE.Vector3; quat: THREE.Quaternion; proj: Projection };
     done: () => void;
   } = null;
   let current: Projection = centred(FOV_ORBIT);
@@ -1056,6 +1058,7 @@ export function createHouseScene(host: HTMLElement, opts: SceneOptions): SceneHa
     toProj: () => Projection,
     dur: number,
     done: () => void,
+    path?: (e: number) => { pos: THREE.Vector3; quat: THREE.Quaternion; proj: Projection },
   ) => {
     tween = {
       t0: performance.now(),
@@ -1066,6 +1069,7 @@ export function createHouseScene(host: HTMLElement, opts: SceneOptions): SceneHa
       toPos,
       toQuat,
       toProj,
+      path,
       done,
     };
     mode = "moving";
@@ -1093,11 +1097,19 @@ export function createHouseScene(host: HTMLElement, opts: SceneOptions): SceneHa
     orbit.pitch = orbit.tPitch;
     orbit.zoom = orbit.tZoom;
     const pose = orbitPose(orbit.yaw, orbit.pitch, orbit.zoom);
-    startTween(pose.pos, pose.quat, () => centred(FOV_ORBIT), dur ?? travelTime(pose.pos), () => {
-      mode = "orbit";
-      showDots(true);
-      onMode("orbit");
-    });
+    const fromPhoto = mode === "photo";
+    startTween(
+      pose.pos,
+      pose.quat,
+      () => centred(FOV_ORBIT),
+      dur ?? travelTime(pose.pos),
+      () => {
+        mode = "orbit";
+        showDots(true);
+        onMode("orbit");
+      },
+      fromPhoto ? (e) => fromPhotoView(e, orbit.yaw, orbit.pitch, orbit.zoom) : undefined,
+    );
   };
 
   const back = () => {
@@ -1136,6 +1148,42 @@ export function createHouseScene(host: HTMLElement, opts: SceneOptions): SceneHa
     camera.position.copy(photoPos);
     camera.quaternion.copy(photoQuat);
     showDots(false);
+  }
+
+  // The way from the photo's viewpoint (e = 0) to the free view (e = 1). The camera swings
+  // round the house on an arc and keeps looking at it, so the house stays in the middle of
+  // the picture and only ever grows. (Blending position and direction separately lets the
+  // house drift sideways on the way, badly so on a narrow phone screen, where the free view
+  // stands twice as far back.)
+  const photoRel = photoPos.clone().sub(target);
+  const photoDist = photoRel.length();
+  const photoYaw = Math.atan2(photoRel.x, photoRel.z);
+  const photoPitch = Math.asin(photoRel.y / photoDist);
+  const photoLook = photoPos.clone().add(new THREE.Vector3(0, 0, photoDist)); // straight ahead, due south
+  const upAxis = new THREE.Vector3(0, 1, 0);
+  function fromPhotoView(e: number, yaw: number, pitch: number, zoom: number) {
+    const endDist = fit * zoom;
+    let turn = yaw - photoYaw;
+    turn = Math.atan2(Math.sin(turn), Math.cos(turn)); // the short way round
+    const y = photoYaw + turn * e;
+    const p = lerp(photoPitch, pitch, e);
+    const d = photoDist * Math.pow(endDist / photoDist, e);
+    const pos = new THREE.Vector3(
+      target.x + d * Math.cos(p) * Math.sin(y),
+      target.y + d * Math.sin(p),
+      target.z + d * Math.cos(p) * Math.cos(y),
+    );
+    const lookAt = photoLook.clone().lerp(target, e);
+    const quat = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(pos, lookAt, upAxis));
+    const a = photoProjection();
+    const b = centred(FOV_ORBIT);
+    // blend the size of the house on screen, then work out the lens that gives it at this distance
+    const proj: Projection = {
+      f: lerp(a.f / photoDist, b.f / endDist, e) * d,
+      cx: lerp(a.cx, b.cx, e),
+      cy: lerp(a.cy, b.cy, e),
+    };
+    return { pos, quat, proj };
   }
 
   const setProgress = (p: number) => {
@@ -1271,31 +1319,52 @@ export function createHouseScene(host: HTMLElement, opts: SceneOptions): SceneHa
   el.addEventListener("wheel", onWheel, { passive: false });
   el.addEventListener("dblclick", onDouble);
 
+  // -- Depth range -----------------------------------------------------------
+  // The nearest thing the camera draws is kept as far out as the view allows. With a fixed
+  // 5 cm near limit, a camera standing 80 m back (the free view on a phone) cannot tell the
+  // paving from the lawn 3 cm below it, and the ground flickers while the camera moves.
+  // Close to the house (door views) the limit stays at 5 cm.
+  const HOUSE_BOX = new THREE.Box3(new THREE.Vector3(-8.5, -0.6, -7.5), new THREE.Vector3(8.5, 10.5, 7.5));
+  const updateClip = () => {
+    const away = HOUSE_BOX.distanceToPoint(camera.position);
+    const near = clamp(away * 0.12, 0.05, 12);
+    const far = Math.max(400, away + 350);
+    if (Math.abs(near - camera.near) > camera.near * 0.02 || Math.abs(far - camera.far) > 1) {
+      camera.near = near;
+      camera.far = far;
+      camera.updateProjectionMatrix();
+    }
+  };
+
   // -- Loop -----------------------------------------------------------------
   let raf = 0;
   const frame = (now: number) => {
     raf = requestAnimationFrame(frame);
     if (!active) return;
     if (mode === "scroll") {
-      const e = ease(progress);
-      const pose = orbitPose(orbit.tYaw, orbit.tPitch, orbit.tZoom);
-      const from = photoProjection();
-      const to = centred(FOV_ORBIT);
-      camera.position.lerpVectors(photoPos, pose.pos, e);
-      camera.quaternion.slerpQuaternions(photoQuat, pose.quat, e);
-      current = { f: lerp(from.f, to.f, e), cx: lerp(from.cx, to.cx, e), cy: lerp(from.cy, to.cy, e) };
+      const view = fromPhotoView(ease(progress), orbit.tYaw, orbit.tPitch, orbit.tZoom);
+      camera.position.copy(view.pos);
+      camera.quaternion.copy(view.quat);
+      current = view.proj;
       applyProjection(current);
     } else if (tween) {
       const k = clamp((now - tween.t0) / tween.dur, 0, 1);
       const e = ease(k);
-      const to = tween.toProj();
-      camera.position.lerpVectors(tween.fromPos, tween.toPos, e);
-      camera.quaternion.slerpQuaternions(tween.fromQuat, tween.toQuat, e);
-      current = {
-        f: lerp(tween.fromProj.f, to.f, e),
-        cx: lerp(tween.fromProj.cx, to.cx, e),
-        cy: lerp(tween.fromProj.cy, to.cy, e),
-      };
+      if (tween.path) {
+        const view = tween.path(e);
+        camera.position.copy(view.pos);
+        camera.quaternion.copy(view.quat);
+        current = view.proj;
+      } else {
+        const to = tween.toProj();
+        camera.position.lerpVectors(tween.fromPos, tween.toPos, e);
+        camera.quaternion.slerpQuaternions(tween.fromQuat, tween.toQuat, e);
+        current = {
+          f: lerp(tween.fromProj.f, to.f, e),
+          cx: lerp(tween.fromProj.cx, to.cx, e),
+          cy: lerp(tween.fromProj.cy, to.cy, e),
+        };
+      }
       applyProjection(current);
       if (k >= 1) {
         const done = tween.done;
@@ -1313,6 +1382,7 @@ export function createHouseScene(host: HTMLElement, opts: SceneOptions): SceneHa
       camera.position.copy(look.pos);
       camera.rotation.set(look.pitch, look.yaw, 0, "YXZ");
     }
+    updateClip();
     const pulse = 0.03 * clamp(size.w / size.h, 0.45, 1) * (1 + 0.1 * Math.sin(now / 420));
     for (const d of house?.doors ?? []) d.dot.scale.set(pulse, pulse, 1);
     renderer.render(scene, camera);
