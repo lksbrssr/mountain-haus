@@ -73,6 +73,8 @@ export function House3D({
   const [touch, setTouch] = useState(false);
   const [flying, setFlying] = useState(!!flyFrom);
   const [hover, setHover] = useState<RoomHover | null>(null);
+  // Clean view by default; the real surroundings blend in on request.
+  const [surroundings, setSurroundings] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -317,6 +319,20 @@ export function House3D({
           ← Back to the house
         </button>
       )}
+      {mode === "orbit" && (
+        <button
+          type="button"
+          aria-pressed={surroundings}
+          onClick={() => {
+            const next = !surroundings;
+            setSurroundings(next);
+            sceneRef.current?.setSurroundings(next);
+          }}
+          className="absolute bottom-16 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-full bg-forest px-4 py-2 text-sm text-cream shadow-soft transition hover:bg-pine"
+        >
+          {surroundings ? "Hide surroundings" : "Show surroundings"}
+        </button>
+      )}
       <p
         className={`pointer-events-none absolute inset-x-0 bottom-7 px-6 text-center text-xs text-pine transition-opacity duration-700 ${
           mode ? "opacity-100" : "opacity-0"
@@ -325,13 +341,14 @@ export function House3D({
         {/* on a light pill, so it reads over lawn, paving and the aerial photo alike */}
         <span className="inline-block rounded-full bg-cream/80 px-3 py-1">{hint}</span>
       </p>
-      {/* Credit for the aerial photo on the ground around the house (required by its licence, CC BY 4.0). */}
+      {/* Credit for the aerial photo on the ground around the house (required by its licence, CC BY 4.0).
+          Shown with the surroundings, which is when the photo is on screen. */}
       <a
         href="https://www.geodaten.bayern.de"
         target="_blank"
         rel="noreferrer"
         className={`absolute bottom-1.5 right-3 rounded bg-cream/75 px-1.5 py-0.5 text-[10px] leading-none text-pine/80 transition-opacity duration-700 hover:text-pine ${
-          mode ? "opacity-100" : "opacity-0"
+          mode && surroundings ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
       >
         Bayerische Vermessungsverwaltung – www.geodaten.bayern.de
