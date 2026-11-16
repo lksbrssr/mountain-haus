@@ -13,7 +13,7 @@ type Phase = "photo" | "fading" | "model";
 const HOLD_MS = 450;
 const FADE_MS = 2200;
 
-export function House3D() {
+export function House3D({ hideChrome = false }: { hideChrome?: boolean } = {}) {
   const hostRef = useRef<HTMLDivElement>(null);
   const photoRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<SceneHandle | null>(null);
@@ -70,7 +70,7 @@ export function House3D() {
         : "drag to rotate · scroll to zoom · double-click to reset · click a door";
 
   return (
-    <div className="relative h-[100dvh] min-h-[560px] w-full select-none overflow-hidden bg-cream">
+    <div className="relative h-full min-h-[560px] w-full select-none overflow-hidden bg-cream">
       {/* The 3D view stays hidden until the photo is up, so the photo is always what you see first. */}
       <div
         ref={hostRef}
@@ -102,7 +102,7 @@ export function House3D() {
         </div>
       )}
 
-      <SiteHeader light={phase === "photo"} />
+      {!hideChrome && <SiteHeader light={phase === "photo"} />}
 
       {mode === "door" && (
         <button

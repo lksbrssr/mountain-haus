@@ -5,8 +5,8 @@ import { rooms } from "@/lib/rooms";
 import { activities } from "@/lib/area";
 import { houseInfo, wifi, stayTimes } from "@/lib/info";
 import { AvailabilityExplorer } from "@/components/AvailabilityExplorer";
-import { SiteFooter } from "@/components/Chrome";
-import { HeroVisit } from "@/components/house3d/HeroVisit";
+import { SiteFooter, SiteHeader } from "@/components/Chrome";
+import { VisitButton } from "@/components/house3d/VisitModal";
 
 export default function Home() {
   const mapsEmbed = `https://maps.google.com/maps?q=${encodeURIComponent(
@@ -19,34 +19,73 @@ export default function Home() {
 
   return (
     <main>
-      {/* Hero: scrolling turns the photo into the 3D model (see HeroVisit) */}
-      <HeroVisit>
-        <div className="mx-auto w-full max-w-6xl">
-          <p className="rise mb-4 font-sans text-sm uppercase tracking-[0.25em] text-cream/80">
-            {house.location}
-          </p>
-          <h1 className="rise-2 max-w-3xl font-display text-5xl leading-[1.05] text-cream sm:text-7xl">
-            {house.tagline}
-          </h1>
-          <p className="rise-3 mt-6 max-w-xl text-lg leading-relaxed text-cream/85">
-            {house.blurb}
-          </p>
-          <div className="rise-3 mt-8 flex flex-wrap gap-3">
-            <Link
-              href="#rooms"
-              className="rounded-full bg-cream px-6 py-3 text-sm font-medium text-forest transition hover:bg-white"
-            >
-              Check your dates
-            </Link>
-            <Link
-              href="#rooms"
-              className="rounded-full border border-cream/40 px-6 py-3 text-sm font-medium text-cream transition hover:bg-cream/10"
-            >
-              Explore the rooms →
-            </Link>
+      {/* Hero — just the photo */}
+      <section className="relative h-[92vh] min-h-[560px] w-full overflow-hidden">
+        <Image
+          src={house.heroImage}
+          alt={house.name}
+          fill
+          priority
+          className="object-cover object-[center_28%]"
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-ink/40 via-ink/10 to-ink/70" />
+        <SiteHeader light />
+        <div className="relative z-20 flex h-full flex-col justify-end px-6 pb-16">
+          <div className="mx-auto w-full max-w-6xl">
+            <p className="rise mb-4 font-sans text-sm uppercase tracking-[0.25em] text-cream/80">
+              {house.location}
+            </p>
+            <h1 className="rise-2 max-w-3xl font-display text-5xl leading-[1.05] text-cream sm:text-7xl">
+              {house.tagline}
+            </h1>
+            <p className="rise-3 mt-6 max-w-xl text-lg leading-relaxed text-cream/85">
+              {house.blurb}
+            </p>
+            <div className="rise-3 mt-8 flex flex-wrap gap-3">
+              <Link
+                href="#rooms"
+                className="rounded-full bg-cream px-6 py-3 text-sm font-medium text-forest transition hover:bg-white"
+              >
+                Check your dates
+              </Link>
+              <VisitButton className="rounded-full border border-cream/40 px-6 py-3 text-sm font-medium text-cream transition hover:bg-cream/10">
+                Take a virtual visit →
+              </VisitButton>
+            </div>
           </div>
         </div>
-      </HeroVisit>
+      </section>
+
+      {/* Virtual visit */}
+      <section id="visit" className="mx-auto max-w-6xl px-6 py-20">
+        <div className="relative overflow-hidden rounded-3xl border border-clay/30 shadow-soft">
+          <Image
+            src={house.heroImage}
+            alt={house.name}
+            width={1600}
+            height={900}
+            className="h-[340px] w-full object-cover object-[center_28%] sm:h-[420px]"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-ink/70 via-ink/20 to-transparent" />
+          <div className="absolute inset-0 flex flex-col justify-end p-8 sm:p-10">
+            <p className="font-sans text-sm uppercase tracking-[0.25em] text-cream/80">
+              Step inside
+            </p>
+            <h2 className="mt-2 max-w-xl font-display text-3xl text-cream sm:text-4xl">
+              Take a virtual visit
+            </h2>
+            <p className="mt-3 max-w-xl leading-relaxed text-cream/85">
+              Walk around a 3D model of the house — drag to rotate, click a door to step
+              through. Opens right here, no scrolling required.
+            </p>
+            <div className="mt-6">
+              <VisitButton className="rounded-full bg-cream px-6 py-3 text-sm font-medium text-forest transition hover:bg-white">
+                Open the virtual visit →
+              </VisitButton>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* Intro strip */}
       <section className="mx-auto max-w-6xl px-6 py-20">

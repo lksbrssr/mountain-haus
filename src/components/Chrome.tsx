@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { house } from "@/lib/house";
 import { YodelButton } from "@/components/YodelButton";
+import { VisitButton } from "@/components/house3d/VisitModal";
 
 export function SiteHeader({ light = false }: { light?: boolean }) {
   const tone = light ? "text-cream" : "text-forest";
@@ -17,9 +18,9 @@ export function SiteHeader({ light = false }: { light?: boolean }) {
           <Link href="/calendar" className="hidden opacity-80 transition hover:opacity-100 sm:inline">
             Calendar
           </Link>
-          <Link href="/visit" className="hidden opacity-80 transition hover:opacity-100 sm:inline">
+          <VisitButton className="hidden opacity-80 transition hover:opacity-100 sm:inline">
             Virtual Visit
-          </Link>
+          </VisitButton>
           <Link href="/#area" className="hidden opacity-80 transition hover:opacity-100 lg:inline">
             The area
           </Link>
