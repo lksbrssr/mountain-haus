@@ -6,10 +6,10 @@ export default function AppliancesPage() {
   return (
     <div className="space-y-8">
       <header>
-        <h1 className="font-display text-4xl text-forest sm:text-5xl">Geräte</h1>
+        <h1 className="font-display text-4xl text-forest sm:text-5xl">Appliances</h1>
         <p className="mt-3 max-w-2xl text-pine/90">
-          Geräte, die mit dem Haus kamen oder dafür gekauft wurden — mit Kaufdatum,
-          Preis, Garantie und Beleg.
+          Appliances that came with the house or were bought for it — with
+          purchase date, price, warranty and receipt.
         </p>
       </header>
 
@@ -26,10 +26,10 @@ export default function AppliancesPage() {
               <p className="mt-1 text-sm text-pine/80">{a.brand}</p>
 
               <dl className="mt-4 space-y-1.5 text-sm">
-                {a.bought && <Row label="Gekauft" value={a.bought} />}
-                {a.price && <Row label="Preis" value={a.price} />}
-                {a.warranty && <Row label="Garantie" value={a.warranty} />}
-                {a.location && <Row label="Ort" value={a.location} />}
+                {a.bought && <Row label="Bought" value={a.bought} />}
+                {a.price && <Row label="Price" value={a.price} />}
+                {a.warranty && <Row label="Warranty" value={a.warranty} />}
+                {a.location && <Row label="Where" value={a.location} />}
               </dl>
               {a.note && <p className="mt-3 text-sm text-pine/75">{a.note}</p>}
 
@@ -39,7 +39,7 @@ export default function AppliancesPage() {
                   target="_blank"
                   className="mt-auto inline-flex w-fit items-center gap-2 rounded-full bg-forest/10 px-4 py-2 pt-2 text-sm text-pine transition hover:bg-forest/15"
                 >
-                  📄 Beleg
+                  📄 Receipt
                 </Link>
               )}
             </article>

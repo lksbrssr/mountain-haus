@@ -9,11 +9,11 @@ export default function SystemsPage() {
   return (
     <div className="space-y-8">
       <header>
-        <h1 className="font-display text-4xl text-forest sm:text-5xl">Systeme</h1>
+        <h1 className="font-display text-4xl text-forest sm:text-5xl">Systems</h1>
         <p className="mt-3 max-w-2xl text-pine/90">
-          Haustechnik auf einen Blick — Schließanlage, Heizung, Flüssiggastank,
-          Rauchmelder, Wasser/Filter und Klingel. Mit Daten, Kurz-Anleitungen und
-          Link zum Beleg.
+          House systems at a glance — locks, heating, LPG tank, smoke detectors,
+          water/filters and doorbell. With specs, quick how-tos and a link to the
+          receipt.
         </p>
       </header>
 
@@ -57,7 +57,7 @@ export default function SystemsPage() {
                   target="_blank"
                   className="mt-5 inline-flex w-fit items-center gap-2 rounded-full bg-forest/10 px-4 py-2 text-sm text-pine transition hover:bg-forest/15"
                 >
-                  📄 Beleg öffnen ({doc.pages} S.)
+                  📄 Open receipt ({doc.pages} {doc.pages === 1 ? "page" : "pages"})
                 </Link>
               )}
             </article>

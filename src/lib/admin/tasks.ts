@@ -38,197 +38,196 @@ export const tasks: MaintenanceTask[] = [
   // ——— Safety ———
   {
     id: "smoke-test",
-    title: "Rauchwarnmelder testen",
+    title: "Test smoke detectors",
     category: "Safety",
     cadence: "annual",
     month: 10,
-    who: "Selbst",
+    who: "DIY",
     detail:
-      "Alle Melder einmal im Jahr per Prüftaste testen. Es sind Ei Electronics Ei650 mit 10-Jahres-Batterie. Bei Fehlfunktion Melder komplett tauschen — Magnethalterung, geht ohne Werkzeug.",
+      "Test every detector once a year with the test button. They're Ei Electronics Ei650 with a sealed 10-year battery. If one misbehaves, swap the whole unit — magnetic mount, no tools needed.",
   },
   {
     id: "smoke-replace",
-    title: "Rauchwarnmelder ersetzen (10-Jahres-Ende)",
+    title: "Replace smoke detectors (10-year end of life)",
     category: "Safety",
     cadence: "oneOff",
     nextDue: "2027",
-    who: "Selbst / eBay totumlu",
+    who: "DIY / eBay (totumlu)",
     detail:
-      "Die Melder wurden 12/2017 verbaut (Fa. Özkan), 10-Jahres-Batterie läuft 2027 aus. Satz à 5 Stück Ei650 neu setzen.",
+      "The detectors were fitted 12/2017 (Fa. Özkan); the 10-year battery expires in 2027. Replace the full set of 5 Ei650 units.",
   },
   {
     id: "doorbell-batteries",
-    title: "Funkklingel-Batterien wechseln",
+    title: "Change wireless doorbell batteries",
     category: "Safety",
     cadence: "semiannual",
-    who: "Selbst",
+    who: "DIY",
     detail:
-      "Die Original-Haustürklingel wurde durch Blitzschlag zerstört; es ist eine Funkklingel installiert. Braucht etwa alle 6 Monate neue Batterien.",
+      "The original hardwired doorbell was destroyed by a lightning strike; a wireless doorbell is fitted. It needs fresh batteries roughly every 6 months.",
   },
 
   // ——— Heating & gas ———
   {
     id: "boiler-service",
-    title: "Heizung warten (Brötje WGO 25, Bj. 1997)",
+    title: "Service the boiler (Brötje WGO 25, 1997)",
     category: "Heating & gas",
     cadence: "annual",
     month: 9,
     who: "Fa. Auracher Haustechnik",
     detail:
-      "Jährliche Wartung der Heizungsanlage (Brötje WGO 25, Nr. 431297) vor der Heizsaison. Hr. Auracher 0174 7474754 oder Hr. Stöger 0175 4675551.",
+      "Annual service of the heating system (Brötje WGO 25, no. 431297) before the heating season. Mr Auracher 0174 7474754 or Mr Stöger 0175 4675551.",
   },
   {
     id: "gas-ext-inspection",
-    title: "Flüssiggastank — Äußere Prüfung (ÄP)",
+    title: "LPG tank — external inspection (Äußere Prüfung)",
     category: "Heating & gas",
     cadence: "biennial",
     lastDone: "2024-05-28",
     nextDue: "2026",
-    who: "Gaslieferant / Schenk Tanktransport",
+    who: "Gas supplier / Schenk Tanktransport",
     detail:
-      "Wiederkehrende äußere Prüfung alle 2 Jahre (Behälter < 3 t). Zuletzt 28.05.2024, nächste 2026. Anmeldung über den Gaslieferanten. Kosten ca. 79 €.",
+      "Recurring external inspection every 2 years (tank < 3 t). Last done 28/05/2024, next due 2026. Book it through the gas supplier. Costs ~€79.",
   },
   {
     id: "gas-int-inspection",
-    title: "Flüssiggastank — Innere Prüfung (IP)",
+    title: "LPG tank — internal inspection (Innere Prüfung)",
     category: "Heating & gas",
     cadence: "decennial",
     lastDone: "2020-06-16",
     nextDue: "2030-06",
-    who: "Gaslieferant / TÜV Austria",
+    who: "Gas supplier / TÜV Austria",
     detail:
-      "Innere Prüfung alle 10 Jahre (Druckbehälter). Zuletzt 16.06.2020 (TÜV Austria, ohne Mangel), nächste Frist 06/2030. Anmeldung über den Gaslieferanten.",
+      "Internal inspection every 10 years (pressure vessel). Last done 16/06/2020 (TÜV Austria, no defects), next due 06/2030. Book it through the gas supplier.",
   },
   {
     id: "gas-level",
-    title: "Gastank-Füllstand prüfen & ggf. nachbestellen",
+    title: "Check LPG tank level & reorder if needed",
     category: "Heating & gas",
     cadence: "annual",
     month: 9,
     who: "Gloria-Gas / H+H Flüssiggas",
     detail:
-      "Füllstand vor dem Winter ablesen und rechtzeitig nachbestellen. Tank fasst 6.400 L, max. Füllung 80 % ≈ 5.120 L. Stand 19.10.26 war ~4.480 L. Lieferung dauert in der Heizsaison länger.",
+      "Read the level before winter and reorder in good time. Tank holds 6,400 L, max fill 80% ≈ 5,120 L. Level on 19/10/26 was ~4,480 L. Delivery takes longer during the heating season.",
   },
 
   // ——— Water ———
   {
     id: "perlatoren",
-    title: "Perlatoren entkalken",
+    title: "Descale the tap aerators",
     category: "Water",
     cadence: "asNeeded",
-    who: "Selbst",
+    who: "DIY",
     detail:
-      "Wasser ist sehr kalkhaltig. Perlatoren mit Zitronensäure entkalken — nie mit Essig (greift Dichtungen/Chrom an).",
+      "The water is very hard. Descale the aerators (Perlatoren) with citric acid — never vinegar (it attacks the seals and chrome).",
   },
   {
     id: "legionella-filter",
-    title: "Legionellenfilter Duschkopf tauschen",
+    title: "Replace shower-head legionella filter",
     category: "Water",
     cadence: "asNeeded",
-    who: "Selbst / Amazon",
+    who: "DIY / Amazon",
     detail:
-      "Duschkopf SAFETY CHROM im Elternbad (1. OG) hat einen integrierten Legionellenfilter. Wenn der Wasserstrahl nachlässt, Ersatzfilter tauschen (Amazon / eBay, ~69 €).",
+      "The SAFETY CHROM shower head in the parents' bathroom (1st floor) has a built-in legionella filter. When the spray weakens, fit a replacement filter (Amazon / eBay, ~€69).",
   },
   {
     id: "kalkfilter-wc",
-    title: "Kalkfilter am Dusch-WC tauschen",
+    title: "Replace limescale filter on the shower-WC",
     category: "Water",
     cadence: "asNeeded",
-    who: "Selbst",
+    who: "DIY",
     detail:
-      "Wenn der Wasserdurchfluss am Dusch-WC geringer wird, Kalkfilter tauschen. Ein Ersatzfilter ist im Haus vorhanden.",
+      "When water flow at the shower-WC drops, replace the limescale filter. A spare filter is in the house.",
   },
   {
     id: "meter-readings",
-    title: "Zählerstände ablesen & übermitteln",
+    title: "Read & submit meter readings",
     category: "Water",
     cadence: "annual",
     month: 12,
-    who: "Selbst",
+    who: "DIY",
     detail:
-      "Strom- und Gaszählerstände (Keller) jährlich online an die Versorger übermitteln.",
+      "Submit the electricity and gas meter readings (cellar) to the utilities online each year.",
   },
 
   // ——— Garden & outdoor ———
   {
     id: "snow",
-    title: "Schneeräumen",
+    title: "Snow clearing",
     category: "Garden & outdoor",
     cadence: "seasonal",
     season: "Winter",
     who: "Venci Kalapacs",
     detail:
-      "Winterdienst/Schneeräumen über Venci Kalapacs (Haus hinter der Metzgerei), 0152 09939325.",
+      "Winter snow-clearing via Venci Kalapacs (house behind the butcher's), 0152 09939325.",
   },
   {
     id: "tree-cut",
-    title: "Baumschnitt",
+    title: "Tree & hedge pruning",
     category: "Garden & outdoor",
     cadence: "annual",
     month: 3,
     who: "Venci Kalapacs",
-    detail: "Jährlicher Baum-/Heckenschnitt über Venci Kalapacs, 0152 09939325.",
+    detail: "Annual tree/hedge pruning via Venci Kalapacs, 0152 09939325.",
   },
   {
     id: "mow",
-    title: "Rasen mähen",
+    title: "Mow the lawn",
     category: "Garden & outdoor",
     cadence: "seasonal",
-    season: "Apr–Okt",
-    who: "Selbst",
-    detail:
-      "Akku-Rasenmäher und Ladegerät stehen in der Garage.",
+    season: "Apr–Oct",
+    who: "DIY",
+    detail: "The cordless mower and charger are in the garage.",
   },
   {
     id: "weeds",
-    title: "Unkraut im Pflaster entfernen",
+    title: "Clear weeds from the paving",
     category: "Garden & outdoor",
     cadence: "seasonal",
-    season: "Frühjahr/Sommer",
-    who: "Selbst",
+    season: "Spring/Summer",
+    who: "DIY",
     detail:
-      "Fugen im Pflaster: Wegerein-Konzentrat (Roundup-frei) oder Essigsäure-Reiniger. Keine chemischen Unkrautvernichter auf versiegelten Flächen (verboten).",
+      "Paving joints: Wegerein concentrate (Roundup-free) or an acetic-acid cleaner. No chemical weedkillers on sealed surfaces (it's prohibited).",
   },
 
   // ——— Appliances ———
   {
     id: "dishwasher-warranty",
-    title: "Geschirrspüler-Garantie beachten",
+    title: "Mind the dishwasher warranty",
     category: "Appliances",
     cadence: "oneOff",
     nextDue: "2026-10-31",
     who: "Küchenhaus Kornbichler",
     detail:
-      "Bosch Serie 4 SPH4HL801E (eingebaut 10/2024). Garantie bis 31.10.2026. Aqua-Stopp-Garantie: ein Geräteleben lang. Rostschutz: 10 Jahre.",
+      "Bosch Serie 4 SPH4HL801E (installed 10/2024). Warranty until 31/10/2026. AquaStop guarantee: lifetime of the appliance. Anti-rust: 10 years.",
   },
 
   // ——— Admin ———
   {
     id: "building-insurance",
-    title: "Gebäudeversicherung prüfen",
+    title: "Review buildings insurance",
     category: "Admin",
     cadence: "annual",
     month: 11,
-    who: "Selbst",
+    who: "DIY",
     detail:
-      "Wohngebäudeversicherung läuft bei Kauf automatisch auf den Käufer über (§ 95 VVG). Innerhalb 1 Monat nach Grundbucheintrag kündbar — eigene Police mit Elementarschäden abschließen.",
+      "The buildings insurance passes automatically to the buyer on purchase (§ 95 VVG). You can cancel within 1 month of the land-registry entry — take out your own policy including natural-hazard cover (Elementarschäden).",
   },
 ];
 
 // ——— helpers ———
 export const cadenceLabel: Record<Cadence, string> = {
-  annual: "Jährlich",
-  biennial: "Alle 2 Jahre",
-  decennial: "Alle 10 Jahre",
-  semiannual: "Halbjährlich",
-  seasonal: "Saisonal",
-  asNeeded: "Bei Bedarf",
-  oneOff: "Einmalig / Stichtag",
+  annual: "Yearly",
+  biennial: "Every 2 years",
+  decennial: "Every 10 years",
+  semiannual: "Twice a year",
+  seasonal: "Seasonal",
+  asNeeded: "As needed",
+  oneOff: "One-off / deadline",
 };
 
-export const monthsDE = [
-  "Jan", "Feb", "Mär", "Apr", "Mai", "Jun",
-  "Jul", "Aug", "Sep", "Okt", "Nov", "Dez",
+export const monthsEN = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ];
 
 export const categoryEmoji: Record<TaskCategory, string> = {

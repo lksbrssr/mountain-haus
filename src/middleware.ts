@@ -23,9 +23,31 @@ export async function middleware(req: NextRequest) {
     const adminPw = process.env.ADMIN_PASSWORD;
     if (adminPw) {
       const expected = await adminTokenFor(adminPw);
+
+      // Already unlocked via cookie.
       if (req.cookies.get(ADMIN_COOKIE)?.value === expected) {
         return NextResponse.next();
       }
+
+      // Cryptic magic-link: /admin?key=<ADMIN_PASSWORD> (or ?key= on any admin
+      // path). If the key matches, set the cookie and redirect to the clean URL
+      // so the secret never lingers in the address bar — no form needed. Make
+      // ADMIN_PASSWORD a long random string and you've got an unguessable link.
+      const key = req.nextUrl.searchParams.get("key");
+      if (key && key === adminPw) {
+        const url = req.nextUrl.clone();
+        url.searchParams.delete("key");
+        const res = NextResponse.redirect(url);
+        res.cookies.set(ADMIN_COOKIE, expected, {
+          httpOnly: true,
+          sameSite: "lax",
+          secure: process.env.NODE_ENV === "production",
+          path: "/",
+          maxAge: 60 * 60 * 24 * 30, // 30 days
+        });
+        return res;
+      }
+
       const url = req.nextUrl.clone();
       url.pathname = "/admin/unlock";
       url.searchParams.set("from", pathname + req.nextUrl.search);

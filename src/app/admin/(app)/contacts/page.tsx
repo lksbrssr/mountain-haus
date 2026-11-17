@@ -4,15 +4,15 @@ export default function ContactsPage() {
   return (
     <div className="space-y-12">
       <header>
-        <h1 className="font-display text-4xl text-forest sm:text-5xl">Kontakte</h1>
+        <h1 className="font-display text-4xl text-forest sm:text-5xl">Contacts</h1>
         <p className="mt-3 max-w-2xl text-pine/90">
-          Handwerker, Lieferanten und Nachbarn aus der Übergabe — plus die lokalen
-          Tipps für Essen & Trinken.
+          Tradespeople, suppliers and neighbours from the handover — plus the
+          local food & drink tips.
         </p>
       </header>
 
       <section>
-        <h2 className="font-display text-2xl text-forest">Handwerker & Lieferanten</h2>
+        <h2 className="font-display text-2xl text-forest">Tradespeople & suppliers</h2>
         <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {tradespeople.map((c) => (
             <div key={c.name} className="rounded-2xl border border-clay/30 bg-cream p-5">
@@ -27,7 +27,7 @@ export default function ContactsPage() {
       </section>
 
       <section>
-        <h2 className="font-display text-2xl text-forest">Nachbarn & Lokales</h2>
+        <h2 className="font-display text-2xl text-forest">Neighbours & local</h2>
         <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {neighbours.map((c) => (
             <div key={c.name} className="rounded-2xl border border-clay/30 bg-cream p-5">
@@ -40,7 +40,7 @@ export default function ContactsPage() {
       </section>
 
       <section>
-        <h2 className="font-display text-2xl text-forest">Essen & Trinken</h2>
+        <h2 className="font-display text-2xl text-forest">Food & drink</h2>
         <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {foodTips.map((f) => (
             <div key={f.name} className="rounded-2xl border border-clay/30 bg-cream p-5">

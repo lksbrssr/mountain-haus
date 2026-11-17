@@ -34,7 +34,7 @@ export function AdminUnlockForm({
 
   return (
     <form onSubmit={onSubmit} className="mt-7">
-      <label className="block text-sm font-medium text-forest">Admin-Passwort</label>
+      <label className="block text-sm font-medium text-forest">Admin password</label>
       <input
         name="password"
         type="password"
@@ -45,13 +45,13 @@ export function AdminUnlockForm({
         }`}
         placeholder="••••••••"
       />
-      {error && <p className="mt-2 text-sm text-red-600">Stimmt nicht. Nochmal?</p>}
+      {error && <p className="mt-2 text-sm text-red-600">That&apos;s not it. Try again?</p>}
       <button
         type="submit"
         disabled={loading}
         className="mt-5 w-full rounded-xl bg-forest py-3 font-medium text-cream transition hover:bg-pine disabled:opacity-60"
       >
-        {loading ? "Öffne…" : "Verwaltung öffnen"}
+        {loading ? "Opening…" : "Open admin"}
       </button>
     </form>
   );
