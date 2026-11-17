@@ -60,7 +60,7 @@ export const rooms: Room[] = [
     name: "The Studio",
     short: "A snug ground-floor room with its own door to the garden.",
     description:
-      "A cosy little ground-floor room just off the living area — the old Geräteraum, now a quiet bolt-hole with a queen bed. Steps from the kitchen and the garden door, and the easiest room to slip in and out of after a late walk.",
+      "A cosy little ground-floor room just off the living area. Steps from the kitchen and the garden door, and the easiest room to slip in and out of after a late walk.",
     sleeps: 2,
     bed: "1 queen",
     size: "~8 m²",
