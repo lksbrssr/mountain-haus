@@ -47,7 +47,7 @@ export function SetupClient() {
       {/* Progress */}
       <div className="rounded-2xl border border-clay/30 bg-cream p-5">
         <div className="flex items-baseline justify-between">
-          <span className="text-sm text-pine/80">Erledigt</span>
+          <span className="text-sm text-pine/80">Done</span>
           <span className="font-display text-xl text-forest">
             {completed} / {total}
           </span>
@@ -111,8 +111,8 @@ export function SetupClient() {
       })}
 
       <p className="text-xs text-pine/50">
-        Häkchen werden lokal in diesem Browser gespeichert. Keine Rechtsberatung —
-        Details mit Gemeinde / Notar abklären.
+        Checkboxes are saved locally in this browser. Not legal advice — confirm
+        details with the Gemeinde / your notary.
       </p>
     </div>
   );

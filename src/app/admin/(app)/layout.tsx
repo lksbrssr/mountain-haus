@@ -14,7 +14,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <main className="mx-auto max-w-6xl px-6 pb-24 pt-10">{children}</main>
       <footer className="border-t border-clay/25 bg-cream">
         <div className="mx-auto max-w-6xl px-6 py-8 text-sm text-pine/70">
-          Private Hausverwaltung · {house.address}
+          Private house admin · {house.address}
         </div>
       </footer>
     </div>

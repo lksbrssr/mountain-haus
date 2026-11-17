@@ -1,7 +1,7 @@
-// Move-in / change-of-owner to-dos for a house in Bayrischzell (Lkr. Miesbach).
-// These are the one-time registrations you work through after an Eigentümer-
-// wechsel. Flip `done` to true as you knock them out. Not legal advice —
-// confirm specifics with the Gemeinde / your Notar.
+// Move-in / change-of-owner to-dos for a house in Bayrischzell (Miesbach
+// district, Bavaria). These are the one-time registrations you work through
+// after a change of ownership. Flip `done` to true as you knock them out.
+// Not legal advice — confirm specifics with the Gemeinde / your notary.
 
 export type SetupPriority = "now" | "soon" | "later";
 
@@ -17,116 +17,116 @@ export type SetupTask = {
 export const setupTasks: SetupTask[] = [
   {
     id: "strom",
-    title: "Strom anmelden (Eigentümerwechsel)",
+    title: "Register electricity (change of owner)",
     priority: "now",
-    where: "Stromversorger / Grundversorger Lkr. Miesbach",
+    where: "Electricity provider / default supplier, Miesbach district",
     done: false,
     detail:
-      "Mit Zählerstand (4.434 kWh) und Zählernummer (1645 774 X 4717 0129) den Anbieter informieren. Entweder bestehenden Vertrag übernehmen oder neuen Anbieter wählen — sonst läuft man automatisch beim örtlichen Grundversorger. Innerhalb von ~2 Wochen melden.",
+      "Notify the provider with the meter reading (4,434 kWh) and meter number (1645 774 X 4717 0129). Either take over the existing contract or pick a new supplier — otherwise you default to the local basic supplier (Grundversorger). Do this within ~2 weeks.",
   },
   {
     id: "wasser",
-    title: "Wasser & Abwasser ummelden",
+    title: "Transfer water & sewage",
     priority: "now",
-    where: "Gemeinde Bayrischzell / Wasserversorgung",
+    where: "Gemeinde Bayrischzell / water utility",
     done: false,
     detail:
-      "Eigentümerwechsel bei der gemeindlichen Wasserver- und Abwasserentsorgung melden. Zählerstand Wasser beim Ablesen notieren (im Übergabeprotokoll nicht erfasst — selbst ablesen). Gebührenbescheid läuft künftig auf den neuen Eigentümer.",
+      "Report the change of owner to the municipal water and sewage service. Note the water meter reading yourself (it wasn't captured in the handover protocol). Future bills go to the new owner.",
   },
   {
     id: "muell",
-    title: "Müllabfuhr / Abfallgebühren anmelden",
+    title: "Register refuse collection & fees",
     priority: "now",
-    where: "Kommunalunternehmen Abfallwirtschaft Lkr. Miesbach (KU)",
+    where: "Miesbach district waste authority (Kommunalunternehmen / KU)",
     done: false,
     detail:
-      "Rest-, Bio-, Papier- und Gelbe Tonne auf den neuen Eigentümer ummelden und Tonnengrößen/Leerungsrhythmus bestätigen. Abfallgebühren laufen über den Landkreis. Wertstoffhof-Zugang klären (Ansprechpartner vor Ort: Hr. Lill, 0174 7056688).",
+      "Transfer the residual, bio, paper and recycling bins to the new owner and confirm bin sizes / collection schedule. Waste fees run through the district. Sort out recycling-centre (Wertstoffhof) access — local contact: Mr Lill, 0174 7056688.",
   },
   {
     id: "schornsteinfeger",
-    title: "Schornsteinfeger / Kaminkehrer melden",
+    title: "Notify the chimney sweep (Schornsteinfeger)",
     priority: "now",
-    where: "Bezirkskaminkehrer Ralf Krieglmeier · 08666 228057 / 0176 20236576",
+    where: "District chimney sweep Ralf Krieglmeier · 08666 228057 / 0176 20236576",
     done: false,
     detail:
-      "Eigentümerwechsel beim zuständigen Bezirksschornsteinfeger (Kehrbezirk) anmelden. Pflicht: Feuerstättenschau und wiederkehrende Abgasmessung/Kehrung für die Heizung (Brötje) und ggf. Kaminofen. Er führt das Kehrbuch und setzt die Termine.",
+      "Register the change of owner with the district chimney sweep (Kehrbezirk). Mandatory: fireplace inspection (Feuerstättenschau) and recurring flue-gas measurement/sweeping for the boiler (Brötje) and any wood stove. He keeps the logbook and sets the dates.",
   },
   {
     id: "fluessiggas",
-    title: "Flüssiggas-Lieferkonto einrichten",
+    title: "Set up an LPG delivery account",
     priority: "now",
-    where: "Gloria-Gas (089 87181111) oder H+H Flüssiggas (0821 2678926)",
+    where: "Gloria-Gas (089 87181111) or H+H Flüssiggas (0821 2678926)",
     done: false,
     detail:
-      "Der Tank ist Eigentum (Eigentumsnachweis SANO-Propan 1997) — keine Miete, freie Lieferantenwahl. Konto beim Lieferanten auf den neuen Eigentümer anlegen und die gesetzlichen Tankprüfungen (ÄP 2026, IP 2030) dort anmelden.",
+      "The tank is owned (proof of ownership: SANO-Propan invoice, 1997) — no rental, free choice of supplier. Open an account in the new owner's name and register the statutory tank inspections (external 2026, internal 2030) there.",
   },
   {
     id: "grundsteuer",
-    title: "Grundsteuer ummelden",
+    title: "Transfer property tax (Grundsteuer)",
     priority: "soon",
-    where: "Finanzamt Miesbach / Gemeinde Bayrischzell",
+    where: "Tax office Miesbach / Gemeinde Bayrischzell",
     done: false,
     detail:
-      "Nach Grundbucheintrag läuft die Grundsteuer auf den neuen Eigentümer über. Grundsteuerbescheid der Gemeinde prüfen; bei Änderungen Grundsteuererklärung ans Finanzamt.",
+      "After the land-registry entry, property tax passes to the new owner. Check the Gemeinde's property-tax assessment; file a Grundsteuer declaration with the tax office if anything changes.",
   },
   {
     id: "gebaeudeversicherung",
-    title: "Wohngebäudeversicherung regeln",
+    title: "Sort out buildings insurance",
     priority: "soon",
-    where: "Eigene Versicherung / Vorversicherer",
+    where: "Your own insurer / the previous policy",
     done: false,
     detail:
-      "Die bestehende Wohngebäudeversicherung geht per Gesetz auf den Käufer über (§ 95 VVG). Sonderkündigungsrecht innerhalb 1 Monat nach Grundbucheintrag — eigene Police inkl. Elementarschäden (Hochwasser/Lawine/Starkregen, in Alpenlage wichtig) abschließen. Dazu Hausratversicherung.",
+      "The existing buildings insurance passes to the buyer by law (§ 95 VVG). Special right of cancellation within 1 month of the land-registry entry — take out your own policy including natural-hazard cover (flood/avalanche/heavy rain — important in an alpine location). Add contents insurance too.",
   },
   {
     id: "rundfunk",
-    title: "Rundfunkbeitrag klären",
+    title: "Sort out the broadcasting fee (Rundfunkbeitrag)",
     priority: "soon",
     where: "rundfunkbeitrag.de",
     done: false,
     detail:
-      "Als Zweitwohnung ggf. Befreiung möglich, wenn der Hauptwohnsitz (München) bereits zahlt — Antrag auf Zweitwohnungsbefreiung stellen. Sonst Wohnung anmelden.",
+      "As a second home you may be exempt if your main residence (Munich) already pays — apply for the second-home exemption. Otherwise register the dwelling.",
   },
   {
     id: "zweitwohnsitz",
-    title: "Zweitwohnsitz & Zweitwohnungsteuer prüfen",
+    title: "Check second-residence registration & tax",
     priority: "soon",
-    where: "Gemeinde Bayrischzell (Einwohnermeldeamt)",
+    where: "Gemeinde Bayrischzell (residents' office)",
     done: false,
     detail:
-      "Falls als Zweitwohnsitz genutzt: beim Einwohnermeldeamt anmelden. Prüfen, ob Bayrischzell eine Zweitwohnungsteuer erhebt (touristische Gemeinde — gut möglich).",
+      "If used as a second home: register at the residents' office. Check whether Bayrischzell levies a second-home tax (Zweitwohnungsteuer) — likely, given it's a tourist town.",
   },
   {
     id: "kurbeitrag",
-    title: "Kur-/Fremdenverkehrsbeitrag prüfen",
+    title: "Check the spa/visitor levy (Kurbeitrag)",
     priority: "later",
-    where: "Kurverwaltung / Tourist-Info Bayrischzell",
+    where: "Spa administration / tourist office, Bayrischzell",
     done: false,
     detail:
-      "Bayrischzell ist Kurort. Für Zweitwohnungsinhaber kann ein Kur-/Gästebeitrag anfallen (bringt i. d. R. die GästeCard mit Bergbahn-/ÖPNV-Vorteilen). Bei der Kurverwaltung anmelden.",
+      "Bayrischzell is a designated spa town. Second-home owners may owe a spa/visitor levy — it usually comes with the GästeCard (cable-car / public-transport perks). Register with the spa administration.",
   },
   {
     id: "internet",
-    title: "Internet / Telefon einrichten",
+    title: "Set up internet / phone",
     priority: "later",
-    where: "Telekom / regionaler Anbieter",
+    where: "Telekom / regional provider",
     done: false,
     detail:
-      "Verfügbarkeit am Standort prüfen und Anschluss bestellen. Ländliche Lage — ggf. begrenzte Bandbreite, Alternativen (Kabel/Funk/Starlink) prüfen.",
+      "Check availability at the address and order a connection. Rural location — bandwidth may be limited, so weigh alternatives (cable/fixed-wireless/Starlink).",
   },
   {
     id: "wifi",
-    title: "WLAN-Daten im Gäste-Bereich eintragen",
+    title: "Add WiFi details to the guest area",
     priority: "later",
     where: "src/lib/info.ts",
     done: false,
     detail:
-      "Sobald der Anschluss steht: WLAN-Name und Passwort in info.ts aktualisieren, damit der Gäste-Bereich stimmt.",
+      "Once the connection is live: update the WiFi name and password in info.ts so the guest area is correct.",
   },
 ];
 
 export const priorityLabel: Record<SetupPriority, string> = {
-  now: "Zuerst",
-  soon: "Bald",
-  later: "Später",
+  now: "First",
+  soon: "Soon",
+  later: "Later",
 };

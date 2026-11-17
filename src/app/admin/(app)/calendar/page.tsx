@@ -1,6 +1,6 @@
 import {
   tasks,
-  monthsDE,
+  monthsEN,
   cadenceLabel,
   categoryEmoji,
   type MaintenanceTask,
@@ -28,17 +28,17 @@ export default function CalendarPage() {
   return (
     <div className="space-y-12">
       <header>
-        <h1 className="font-display text-4xl text-forest sm:text-5xl">Jahreskalender</h1>
+        <h1 className="font-display text-4xl text-forest sm:text-5xl">Yearly calendar</h1>
         <p className="mt-3 max-w-2xl text-pine/90">
-          Wiederkehrende Wartung, Prüfungen und Fristen über das Jahr verteilt.
-          Fixe Monatsaufgaben im Raster, saisonale und terminlose Aufgaben
-          darunter.
+          Recurring maintenance, inspections and deadlines spread across the year.
+          Fixed monthly tasks are in the grid; seasonal and date-less tasks are
+          below.
         </p>
       </header>
 
       {/* Dated deadlines strip */}
       <section>
-        <h2 className="font-display text-2xl text-forest">Feste Fristen</h2>
+        <h2 className="font-display text-2xl text-forest">Fixed deadlines</h2>
         <div className="mt-4 flex flex-wrap gap-3">
           {datedTasks.map((t) => (
             <div
@@ -49,8 +49,8 @@ export default function CalendarPage() {
               <div>
                 <div className="text-sm font-medium text-forest">{t.title}</div>
                 <div className="text-xs text-pine/70">
-                  fällig <strong className="text-lake">{t.nextDue}</strong>
-                  {t.lastDone ? ` · zuletzt ${t.lastDone}` : ""}
+                  due <strong className="text-lake">{t.nextDue}</strong>
+                  {t.lastDone ? ` · last ${t.lastDone}` : ""}
                 </div>
               </div>
             </div>
@@ -60,9 +60,9 @@ export default function CalendarPage() {
 
       {/* 12-month grid */}
       <section>
-        <h2 className="font-display text-2xl text-forest">Übers Jahr</h2>
+        <h2 className="font-display text-2xl text-forest">Across the year</h2>
         <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {monthsDE.map((label, i) => {
+          {monthsEN.map((label, i) => {
             const m = i + 1;
             const items = monthTasks(m);
             return (
@@ -93,7 +93,7 @@ export default function CalendarPage() {
 
       {/* Seasonal */}
       <section>
-        <h2 className="font-display text-2xl text-forest">Saisonal</h2>
+        <h2 className="font-display text-2xl text-forest">Seasonal</h2>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           {seasonalTasks.map((t) => (
             <div key={t.id} className="rounded-xl border border-clay/25 bg-cream p-4">
@@ -113,7 +113,7 @@ export default function CalendarPage() {
 
       {/* As needed */}
       <section>
-        <h2 className="font-display text-2xl text-forest">Bei Bedarf</h2>
+        <h2 className="font-display text-2xl text-forest">As needed</h2>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {asNeededTasks.map((t) => (
             <div key={t.id} className="rounded-xl border border-clay/25 bg-cream p-4">
@@ -130,7 +130,7 @@ export default function CalendarPage() {
       {/* Legend */}
       <section className="rounded-2xl border border-clay/25 bg-cream/60 p-5">
         <h3 className="text-sm font-semibold uppercase tracking-wide text-pine/70">
-          Rhythmus
+          Cadence
         </h3>
         <div className="mt-3 flex flex-wrap gap-2">
           {(Object.keys(cadenceLabel) as Cadence[]).map((c) => (

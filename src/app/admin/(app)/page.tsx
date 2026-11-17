@@ -4,12 +4,12 @@ import { tasks, categoryEmoji } from "@/lib/admin/tasks";
 import { setupTasks } from "@/lib/admin/setup";
 
 const sections = [
-  { href: "/admin/calendar", title: "Jahreskalender", emoji: "🗓️", desc: "Wartung & Fristen übers Jahr" },
-  { href: "/admin/setup", title: "Einrichten", emoji: "✅", desc: "An-/Ummeldungen nach dem Kauf" },
-  { href: "/admin/systems", title: "Systeme", emoji: "⚙️", desc: "Schließanlage, Heizung, Gastank, Wasser" },
-  { href: "/admin/appliances", title: "Geräte", emoji: "🔌", desc: "Spülmaschine, Staubsauger, Rasenmäher" },
-  { href: "/admin/contacts", title: "Kontakte", emoji: "📇", desc: "Handwerker, Lieferanten, Essen & Trinken" },
-  { href: "/admin/documents", title: "Dokumente", emoji: "📂", desc: "Alle Belege & Nachweise als PDF" },
+  { href: "/admin/calendar", title: "Yearly calendar", emoji: "🗓️", desc: "Maintenance & deadlines across the year" },
+  { href: "/admin/setup", title: "Set up", emoji: "✅", desc: "Registrations after the purchase" },
+  { href: "/admin/systems", title: "Systems", emoji: "⚙️", desc: "Locks, heating, gas tank, water" },
+  { href: "/admin/appliances", title: "Appliances", emoji: "🔌", desc: "Dishwasher, vacuum, mower" },
+  { href: "/admin/contacts", title: "Contacts", emoji: "📇", desc: "Tradespeople, suppliers, food & drink" },
+  { href: "/admin/documents", title: "Documents", emoji: "📂", desc: "All receipts & certificates as PDF" },
 ];
 
 // Tasks with a concrete next date/year, nearest first.
@@ -24,25 +24,25 @@ export default function AdminOverview() {
   return (
     <div className="space-y-12">
       <header>
-        <h1 className="font-display text-4xl text-forest sm:text-5xl">Hausverwaltung</h1>
+        <h1 className="font-display text-4xl text-forest sm:text-5xl">House admin</h1>
         <p className="mt-3 max-w-2xl text-pine/90">
-          Alles rund um {property.address} an einem Ort — digitalisiert aus den
-          Übergabe-Unterlagen. Was wann zu tun ist, wen man anruft, und wo die
-          Belege liegen.
+          Everything about {property.address} in one place — digitized from the
+          handover papers. What to do and when, who to call, and where the
+          receipts live.
         </p>
       </header>
 
       {/* Quick facts */}
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Fact label="Objekt" value={property.type} sub={`FlNr. ${property.flurnummer}`} />
-        <Fact label="Übergabe" value={new Date(property.handoverDate).toLocaleDateString("de-DE")} sub={`von ${property.sellers}`} />
-        <Fact label="Offene Anmeldungen" value={`${openSetup}`} sub="nach dem Kauf" accent />
-        <Fact label="Wartungsaufgaben" value={`${tasks.length}`} sub="im Jahreskalender" />
+        <Fact label="Property" value={property.type} sub={`Parcel ${property.flurnummer}`} />
+        <Fact label="Handover" value={new Date(property.handoverDate).toLocaleDateString("en-GB")} sub={`from ${property.sellers}`} />
+        <Fact label="Open registrations" value={`${openSetup}`} sub="after the purchase" accent />
+        <Fact label="Maintenance tasks" value={`${tasks.length}`} sub="in the yearly calendar" />
       </section>
 
       {/* Section tiles */}
       <section>
-        <h2 className="font-display text-2xl text-forest">Bereiche</h2>
+        <h2 className="font-display text-2xl text-forest">Sections</h2>
         <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {sections.map((s) => (
             <Link
@@ -54,7 +54,7 @@ export default function AdminOverview() {
               <div className="mt-3 font-display text-lg text-forest">{s.title}</div>
               <div className="mt-1 text-sm text-pine/80">{s.desc}</div>
               <div className="mt-3 text-sm text-lake opacity-0 transition group-hover:opacity-100">
-                Öffnen →
+                Open →
               </div>
             </Link>
           ))}
@@ -65,9 +65,9 @@ export default function AdminOverview() {
       <section className="grid gap-8 lg:grid-cols-2">
         <div>
           <div className="flex items-baseline justify-between">
-            <h2 className="font-display text-2xl text-forest">Nächste Termine</h2>
+            <h2 className="font-display text-2xl text-forest">Next deadlines</h2>
             <Link href="/admin/calendar" className="text-sm text-lake hover:underline">
-              Kalender →
+              Calendar →
             </Link>
           </div>
           <ul className="mt-5 space-y-3">
@@ -92,7 +92,7 @@ export default function AdminOverview() {
         {/* Meters & keys */}
         <div className="space-y-8">
           <div>
-            <h2 className="font-display text-2xl text-forest">Zählerstände (Übergabe)</h2>
+            <h2 className="font-display text-2xl text-forest">Meter readings (handover)</h2>
             <ul className="mt-5 space-y-3">
               {meters.map((m) => (
                 <li key={m.kind} className="rounded-xl border border-clay/25 bg-cream px-4 py-3">
@@ -100,13 +100,13 @@ export default function AdminOverview() {
                     <span className="text-sm font-medium text-forest">{m.kind}</span>
                     <span className="font-display text-lg text-forest">{m.reading}</span>
                   </div>
-                  <div className="mt-1 text-xs text-pine/70">Zähler-Nr. {m.meterNo}</div>
+                  <div className="mt-1 text-xs text-pine/70">Meter no. {m.meterNo}</div>
                 </li>
               ))}
             </ul>
           </div>
           <div>
-            <h2 className="font-display text-2xl text-forest">Schlüssel übergeben</h2>
+            <h2 className="font-display text-2xl text-forest">Keys handed over</h2>
             <ul className="mt-4 flex flex-wrap gap-2">
               {keys.map((k) => (
                 <li

@@ -5,13 +5,13 @@ import { usePathname } from "next/navigation";
 import { house } from "@/lib/house";
 
 const items = [
-  { href: "/admin", label: "Übersicht" },
-  { href: "/admin/calendar", label: "Kalender" },
-  { href: "/admin/setup", label: "Einrichten" },
-  { href: "/admin/systems", label: "Systeme" },
-  { href: "/admin/appliances", label: "Geräte" },
-  { href: "/admin/contacts", label: "Kontakte" },
-  { href: "/admin/documents", label: "Dokumente" },
+  { href: "/admin", label: "Overview" },
+  { href: "/admin/calendar", label: "Calendar" },
+  { href: "/admin/setup", label: "Set up" },
+  { href: "/admin/systems", label: "Systems" },
+  { href: "/admin/appliances", label: "Appliances" },
+  { href: "/admin/contacts", label: "Contacts" },
+  { href: "/admin/documents", label: "Documents" },
 ];
 
 export function AdminNav() {
@@ -51,7 +51,7 @@ export function AdminNav() {
             href="/"
             className="ml-1 rounded-full px-3 py-1.5 text-pine/70 transition hover:text-forest"
           >
-            ← Website
+            ← Site
           </Link>
         </nav>
       </div>

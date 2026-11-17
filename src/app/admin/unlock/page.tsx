@@ -17,10 +17,10 @@ export default function AdminUnlockPage({
           {house.location} · Admin
         </p>
         <h1 className="mt-3 font-display text-4xl leading-tight text-forest">
-          Hausverwaltung
+          House admin
         </h1>
         <p className="mt-3 leading-relaxed text-pine/90">
-          Privater Verwaltungsbereich. Bitte das Admin-Passwort eingeben.
+          Private admin area. Please enter the admin password.
         </p>
 
         <AdminUnlockForm from={searchParams.from} hasError={!!searchParams.error} />
