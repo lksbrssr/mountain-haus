@@ -66,7 +66,7 @@ export const rooms: Room[] = [
     size: "~8 m²",
     view: "Garden",
     amenities: ["Ground floor", "Queen bed", "Garden access", "Steps from the kitchen", "Snug & quiet"],
-    images: [],
+    images: ["/rooms/the-studio-1.webp", "/rooms/the-studio-2.webp"],
   },
   {
     slug: "attic",
