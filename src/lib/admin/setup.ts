@@ -88,13 +88,22 @@ export const setupTasks: SetupTask[] = [
       "As a second home you may be exempt if your main residence (Munich) already pays — apply for the second-home exemption. Otherwise register the dwelling.",
   },
   {
-    id: "zweitwohnsitz",
-    title: "Check second-residence registration & tax",
-    priority: "soon",
-    where: "Gemeinde Bayrischzell (residents' office)",
+    id: "anmeldung",
+    title: "Register the second residence (Anmeldung Nebenwohnsitz)",
+    priority: "now",
+    where: "Einwohnermeldeamt, Gemeinde Bayrischzell",
     done: false,
     detail:
-      "If used as a second home: register at the residents' office. Check whether Bayrischzell levies a second-home tax (Zweitwohnungsteuer) — likely, given it's a tourist town.",
+      "If you stay here at all (a holiday/weekend home counts), the Bundesmeldegesetz (§§ 17, 21 BMG) requires registering within 2 weeks of first moving in. Munich stays the main home, so Bayrischzell is registered as a secondary residence (Nebenwohnsitz). As owner-occupiers you issue the Wohnungsgeberbestätigung to yourselves; registration is free. Missing the deadline is an offence (fine up to €1,000).",
+  },
+  {
+    id: "zweitwohnungsteuer",
+    title: "Expect the second-home tax (Zweitwohnungssteuer)",
+    priority: "soon",
+    where: "Gemeinde Bayrischzell (tax/finance office)",
+    done: false,
+    detail:
+      "Registering a Nebenwohnsitz in Bayrischzell triggers the municipal second-home tax — roughly 20% of the annual net cold rent (effective ~13.5%). It follows automatically from the Anmeldung; budget for it. Bavarian income-based exemptions exist but rarely apply here.",
   },
   {
     id: "kurbeitrag",
