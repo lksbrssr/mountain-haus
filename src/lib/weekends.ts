@@ -1,9 +1,9 @@
 // Weekend helpers for the Group Booking feature — a Doodle-style availability
-// poll. Anyone can create a group, pick up to 7 candidate weekends, share the
-// link, and everyone drops their availability to find a date that works.
-//
-// Groups (and the weekends each one offers) are created at runtime and stored
-// on the shared backend; this file only provides the date helpers.
+// poll. Anyone can create a group, pick up to 7 candidate weekends across the
+// next ~12 months, share the link, and everyone drops their availability.
+
+import { rangesOverlap } from "@/lib/format";
+import type { PublicReservation } from "@/lib/reservations";
 
 export type WeekendOption = {
   // Stable identifier, derived from the Friday date. Keyed on when voting.
@@ -28,22 +28,74 @@ function iso(d: Date): string {
   return `${d.getFullYear()}-${m}-${day}`;
 }
 
-// The next `count` Fri–Sun weekends starting from (or after) `from`.
-// Used to populate the "pick your weekends" picker when creating a group.
-export function upcomingWeekends(count = 12, from = new Date()): WeekendOption[] {
-  const d = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+// Every Fri–Sun weekend across the next `months` months (default 12),
+// starting from the upcoming Friday. Used to populate the weekend picker.
+export function upcomingWeekends(months = 12, from = new Date()): WeekendOption[] {
+  const today = new Date(from.getFullYear(), from.getMonth(), from.getDate());
   // Advance to the next Friday (getDay(): Fri = 5).
-  const delta = (5 - d.getDay() + 7) % 7;
-  d.setDate(d.getDate() + delta);
+  const d = new Date(today);
+  d.setDate(d.getDate() + ((5 - d.getDay() + 7) % 7));
+  const horizon = new Date(today);
+  horizon.setMonth(horizon.getMonth() + months);
+
   const out: WeekendOption[] = [];
-  for (let i = 0; i < count; i++) {
-    const fri = new Date(d);
-    fri.setDate(d.getDate() + i * 7);
+  const fri = new Date(d);
+  while (fri <= horizon) {
     const sun = new Date(fri);
     sun.setDate(fri.getDate() + 2);
     out.push({ id: `w-${iso(fri)}`, start: iso(fri), end: iso(sun) });
+    fri.setDate(fri.getDate() + 7);
   }
   return out;
+}
+
+export type MonthGroup = {
+  key: string; // "2026-11"
+  label: string; // "November 2026"
+  short: string; // "Nov '26"
+  weekends: WeekendOption[];
+};
+
+export function monthKeyOf(w: WeekendOption): string {
+  return w.start.slice(0, 7);
+}
+
+// Group weekends by the month their Friday falls in.
+export function groupByMonth(weekends: WeekendOption[]): MonthGroup[] {
+  const groups = new Map<string, WeekendOption[]>();
+  for (const w of weekends) {
+    const key = monthKeyOf(w);
+    (groups.get(key) ?? groups.set(key, []).get(key)!).push(w);
+  }
+  return Array.from(groups.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, ws]) => {
+      const d = new Date(`${key}-01T00:00:00`);
+      return {
+        key,
+        label: new Intl.DateTimeFormat("en-GB", {
+          month: "long",
+          year: "numeric",
+        }).format(d),
+        short: `${new Intl.DateTimeFormat("en-GB", { month: "short" }).format(d)} '${key.slice(2, 4)}`,
+        weekends: ws,
+      };
+    });
+}
+
+// Reservations that overlap a weekend (Fri, Sat & Sun nights → checkout Mon).
+export function weekendConflicts(
+  w: WeekendOption,
+  reservations: PublicReservation[],
+): PublicReservation[] {
+  const checkout = (() => {
+    const d = new Date(`${w.end}T00:00:00`);
+    d.setDate(d.getDate() + 1);
+    return iso(d);
+  })();
+  return reservations.filter((r) =>
+    rangesOverlap(w.start, checkout, r.checkIn, r.checkOut),
+  );
 }
 
 // "Fri–Sun" / "9–11" / "Jan" parts for a weekend label.

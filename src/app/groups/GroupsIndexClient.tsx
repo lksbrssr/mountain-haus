@@ -11,10 +11,14 @@ import {
 } from "@/lib/groups";
 import {
   formatWeekend,
+  groupByMonth,
   MAX_WEEKENDS,
   upcomingWeekends,
+  weekendConflicts,
   type WeekendOption,
 } from "@/lib/weekends";
+import { longWeekend } from "@/lib/holidays";
+import type { PublicReservation } from "@/lib/reservations";
 
 const NAME_KEY = "haus-group-name";
 
@@ -22,19 +26,25 @@ export function GroupsIndexClient() {
   const router = useRouter();
   const [groups, setGroups] = useState<GroupSummary[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [reservations, setReservations] = useState<PublicReservation[]>([]);
 
   const [name, setName] = useState("");
   const [title, setTitle] = useState("");
   const [picked, setPicked] = useState<string[]>([]);
+  const [openMonth, setOpenMonth] = useState<string>("");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
-  const options = useMemo(() => upcomingWeekends(14), []);
+  const months = useMemo(() => groupByMonth(upcomingWeekends(12)), []);
   const byId = useMemo(() => {
     const m = new Map<string, WeekendOption>();
-    for (const w of options) m.set(w.id, w);
+    for (const grp of months) for (const w of grp.weekends) m.set(w.id, w);
     return m;
-  }, [options]);
+  }, [months]);
+
+  useEffect(() => {
+    if (months.length && !openMonth) setOpenMonth(months[0].key);
+  }, [months, openMonth]);
 
   useEffect(() => {
     try {
@@ -43,6 +53,11 @@ export function GroupsIndexClient() {
     } catch {
       /* ignore */
     }
+    // Existing bookings — so we can grey out weekends the haus is already taken.
+    fetch("/api/reservations")
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((d) => setReservations(d.reservations ?? []))
+      .catch(() => setReservations([]));
     if (!GROUPS_API) {
       setGroups([]);
       return;
@@ -50,7 +65,7 @@ export function GroupsIndexClient() {
     listGroups()
       .then(setGroups)
       .catch(() => setLoadError("Couldn't load existing groups."));
-  }, []);
+  }, [months]);
 
   function togglePick(id: string) {
     setPicked((prev) =>
@@ -62,6 +77,15 @@ export function GroupsIndexClient() {
     );
   }
 
+  const pickedWeekends = useMemo(
+    () =>
+      picked
+        .map((id) => byId.get(id))
+        .filter((w): w is WeekendOption => Boolean(w))
+        .sort((a, b) => a.start.localeCompare(b.start)),
+    [picked, byId],
+  );
+
   async function onCreate(e: React.FormEvent) {
     e.preventDefault();
     setCreateError(null);
@@ -69,26 +93,28 @@ export function GroupsIndexClient() {
     const t = title.trim();
     if (!organizer) return setCreateError("Add your name first.");
     if (!t) return setCreateError("Give your group a name.");
-    if (picked.length === 0)
+    if (pickedWeekends.length === 0)
       return setCreateError("Pick at least one weekend.");
     try {
       localStorage.setItem(NAME_KEY, organizer);
     } catch {
       /* ignore */
     }
-    const weekends = picked
-      .map((id) => byId.get(id))
-      .filter((w): w is WeekendOption => Boolean(w))
-      .sort((a, b) => a.start.localeCompare(b.start));
     setCreating(true);
     try {
-      const group = await createGroup({ title: t, organizer, weekends });
+      const group = await createGroup({
+        title: t,
+        organizer,
+        weekends: pickedWeekends,
+      });
       router.push(`/groups/${group.id}`);
     } catch (err) {
       setCreateError((err as Error).message);
       setCreating(false);
     }
   }
+
+  const openGroup = months.find((m) => m.key === openMonth);
 
   return (
     <>
@@ -140,42 +166,158 @@ export function GroupsIndexClient() {
               <div className="flex items-baseline justify-between">
                 <span className="text-sm text-pine">
                   Candidate weekends{" "}
-                  <span className="text-clay">(pick up to {MAX_WEEKENDS})</span>
+                  <span className="text-clay">
+                    (pick up to {MAX_WEEKENDS}, any month in the next year)
+                  </span>
                 </span>
                 <span className="text-xs text-clay">
                   {picked.length}/{MAX_WEEKENDS}
                 </span>
               </div>
-              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-                {options.map((w) => {
-                  const on = picked.includes(w.id);
-                  const full = !on && picked.length >= MAX_WEEKENDS;
-                  const f = formatWeekend(w);
+
+              {/* Month tabs — months with picks show a count dot. */}
+              <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+                {months.map((m) => {
+                  const count = m.weekends.filter((w) =>
+                    picked.includes(w.id),
+                  ).length;
+                  const active = m.key === openMonth;
                   return (
                     <button
-                      key={w.id}
+                      key={m.key}
                       type="button"
-                      onClick={() => togglePick(w.id)}
-                      disabled={full}
-                      className={`rounded-2xl border px-3 py-2.5 text-left transition ${
-                        on
+                      onClick={() => setOpenMonth(m.key)}
+                      className={`relative shrink-0 rounded-full border px-4 py-2 text-sm transition ${
+                        active
                           ? "border-forest bg-forest text-cream"
-                          : full
-                            ? "cursor-not-allowed border-clay/20 bg-white/50 text-pine/40"
-                            : "border-clay/30 bg-white text-forest hover:border-forest/40"
+                          : count > 0
+                            ? "border-forest/40 bg-forest/10 text-forest"
+                            : "border-clay/30 bg-white text-pine hover:border-forest/40"
                       }`}
                     >
-                      <span className="block text-[0.7rem] uppercase tracking-wide opacity-70">
-                        {f.weekday}
-                      </span>
-                      <span className="block font-display text-lg leading-tight">
-                        {f.range}
-                      </span>
-                      <span className="block text-xs opacity-70">{f.month}</span>
+                      {m.short}
+                      {count > 0 && (
+                        <span
+                          className={`ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[0.6rem] font-semibold ${
+                            active ? "bg-cream text-forest" : "bg-forest text-cream"
+                          }`}
+                        >
+                          {count}
+                        </span>
+                      )}
                     </button>
                   );
                 })}
               </div>
+
+              {/* Weekends in the open month. */}
+              {openGroup && (
+                <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+                  {openGroup.weekends.map((w) => {
+                    const on = picked.includes(w.id);
+                    const full = !on && picked.length >= MAX_WEEKENDS;
+                    const f = formatWeekend(w);
+                    const lw = longWeekend(w.start, w.end);
+                    const conflicts = weekendConflicts(w, reservations);
+                    const booked = conflicts.length > 0;
+                    const disabled = full || booked;
+                    return (
+                      <button
+                        key={w.id}
+                        type="button"
+                        onClick={() => togglePick(w.id)}
+                        disabled={disabled}
+                        title={
+                          booked
+                            ? `Already booked: ${conflicts
+                                .map((c) => `${c.name} (${c.room})`)
+                                .join(", ")}`
+                            : lw.isLong
+                              ? lw.title
+                              : undefined
+                        }
+                        className={`relative rounded-2xl border px-3 py-2.5 text-left transition ${
+                          on
+                            ? "border-forest bg-forest text-cream"
+                            : booked
+                              ? "cursor-not-allowed border-clay/20 bg-sand/50 text-pine/40"
+                              : full
+                                ? "cursor-not-allowed border-clay/20 bg-white/50 text-pine/40"
+                                : "border-clay/30 bg-white text-forest hover:border-forest/40"
+                        }`}
+                      >
+                        <span className="block text-[0.7rem] uppercase tracking-wide opacity-70">
+                          {f.weekday}
+                        </span>
+                        <span className="block font-display text-lg leading-tight">
+                          {f.range}
+                        </span>
+                        {booked ? (
+                          <span className="mt-0.5 block text-[0.65rem] font-medium text-[#b5552f]/80 line-through">
+                            Booked
+                          </span>
+                        ) : lw.isLong ? (
+                          <span
+                            className={`mt-0.5 inline-block rounded-full px-1.5 py-0.5 text-[0.6rem] font-semibold ${
+                              on ? "bg-cream/20 text-cream" : "bg-clay/20 text-clay"
+                            }`}
+                          >
+                            ★ {lw.tag}
+                          </span>
+                        ) : (
+                          <span className="mt-0.5 block text-[0.65rem] opacity-0">
+                            .
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Running summary of everything picked across months. */}
+              {pickedWeekends.length > 0 && (
+                <div className="mt-5 rounded-2xl border border-clay/25 bg-white/60 p-4">
+                  <p className="text-xs font-medium uppercase tracking-wide text-clay">
+                    Your weekends
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {pickedWeekends.map((w) => {
+                      const f = formatWeekend(w);
+                      const lw = longWeekend(w.start, w.end);
+                      return (
+                        <span
+                          key={w.id}
+                          className="inline-flex items-center gap-2 rounded-full bg-forest/10 py-1.5 pl-3 pr-1.5 text-sm text-forest"
+                        >
+                          {f.range} {f.month}
+                          {lw.isLong && (
+                            <span title={lw.title} className="text-clay">
+                              ★
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            aria-label="Remove weekend"
+                            onClick={() => togglePick(w.id)}
+                            className="flex h-5 w-5 items-center justify-center rounded-full bg-forest/15 text-xs text-forest transition hover:bg-forest hover:text-cream"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <p className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[0.7rem] text-clay">
+                <span>
+                  <span className="text-clay">★</span> long weekend (public
+                  holiday alongside)
+                </span>
+                <span className="line-through">Booked</span> = haus already taken
+              </p>
             </div>
 
             {createError && (

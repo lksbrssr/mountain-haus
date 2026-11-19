@@ -9,9 +9,23 @@ import {
   setAvailability,
   type Group,
 } from "@/lib/groups";
-import { formatWeekend, type Availability } from "@/lib/weekends";
+import {
+  formatWeekend,
+  monthKeyOf,
+  weekendConflicts,
+  type Availability,
+} from "@/lib/weekends";
+import { longWeekend } from "@/lib/holidays";
+import type { PublicReservation } from "@/lib/reservations";
 
 const NAME_KEY = "haus-group-name";
+
+function monthLabelOf(key: string): string {
+  return new Intl.DateTimeFormat("en-GB", {
+    month: "long",
+    year: "numeric",
+  }).format(new Date(`${key}-01T00:00:00`));
+}
 
 const CYCLE: (Availability | null)[] = [null, "yes", "maybe", "no"];
 const nextState = (s: Availability | undefined | null): Availability | null =>
@@ -55,6 +69,7 @@ export function GroupClient({ id }: { id: string }) {
 
   const [selected, setSelected] = useState<string[]>([]); // flexible-finder
   const [copied, setCopied] = useState(false);
+  const [reservations, setReservations] = useState<PublicReservation[]>([]);
 
   const refresh = useCallback(async () => {
     try {
@@ -79,6 +94,11 @@ export function GroupClient({ id }: { id: string }) {
       /* ignore */
     }
     refresh();
+    // Existing bookings, to flag weekends the haus is already taken.
+    fetch("/api/reservations")
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((d) => setReservations(d.reservations ?? []))
+      .catch(() => setReservations([]));
     // Light polling so everyone sees new responses roll in.
     const t = setInterval(refresh, 8000);
     return () => clearInterval(t);
@@ -232,6 +252,35 @@ export function GroupClient({ id }: { id: string }) {
     [stats],
   );
 
+  // Long-weekend + already-booked info per weekend id.
+  const weekMeta = useMemo(() => {
+    const m = new Map<
+      string,
+      { lw: ReturnType<typeof longWeekend>; booked: PublicReservation[] }
+    >();
+    if (!group) return m;
+    for (const w of group.weekends) {
+      m.set(w.id, {
+        lw: longWeekend(w.start, w.end),
+        booked: weekendConflicts(w, reservations),
+      });
+    }
+    return m;
+  }, [group, reservations]);
+
+  // Contiguous month spans, so the header can group weekends by month.
+  const monthSpans = useMemo(() => {
+    const spans: { key: string; label: string; span: number }[] = [];
+    if (!group) return spans;
+    for (const w of group.weekends) {
+      const key = monthKeyOf(w);
+      const last = spans[spans.length - 1];
+      if (last && last.key === key) last.span++;
+      else spans.push({ key, label: monthLabelOf(key), span: 1 });
+    }
+    return spans;
+  }, [group]);
+
   if (!loaded)
     return (
       <section className="mx-auto max-w-5xl px-6 py-24 text-center text-pine/60">
@@ -363,43 +412,81 @@ export function GroupClient({ id }: { id: string }) {
           <div className="mt-5 overflow-x-auto rounded-3xl border border-clay/25 bg-cream">
             <table className="w-full border-collapse text-sm">
               <thead>
+                {/* Month group row — highlights which months have options. */}
                 <tr>
-                  <th className="sticky left-0 z-10 min-w-[9rem] bg-cream px-4 py-3 text-left font-medium text-clay">
+                  <th
+                    rowSpan={2}
+                    className="sticky left-0 z-10 min-w-[9rem] bg-cream px-4 py-3 text-left align-bottom font-medium text-clay"
+                  >
                     Who
                   </th>
+                  {monthSpans.map((s) => (
+                    <th
+                      key={s.key}
+                      colSpan={s.span}
+                      className="border-b border-clay/15 bg-forest/5 px-2 py-2 text-center text-[0.7rem] font-semibold uppercase tracking-wide text-forest"
+                    >
+                      {s.label}
+                    </th>
+                  ))}
+                </tr>
+                <tr>
                   {stats.map(({ w, score, fit }) => {
                     const f = formatWeekend(w);
                     const isBest = score > 0 && score === bestScore;
+                    const meta = weekMeta.get(w.id);
+                    const booked = (meta?.booked.length ?? 0) > 0;
                     return (
                       <th
                         key={w.id}
+                        title={
+                          booked
+                            ? `Already booked: ${meta!.booked
+                                .map((c) => `${c.name} (${c.room})`)
+                                .join(", ")}`
+                            : meta?.lw.isLong
+                              ? meta.lw.title
+                              : undefined
+                        }
                         className={`min-w-[5.5rem] px-2 py-3 text-center align-bottom ${
-                          fit === "clear"
-                            ? "bg-forest/15"
-                            : fit === "possible"
-                              ? "bg-clay/15"
-                              : isBest
-                                ? "bg-lake/10"
-                                : ""
+                          booked
+                            ? "bg-sand/50"
+                            : fit === "clear"
+                              ? "bg-forest/15"
+                              : fit === "possible"
+                                ? "bg-clay/15"
+                                : isBest
+                                  ? "bg-lake/10"
+                                  : ""
                         }`}
                       >
                         <span className="block text-[0.65rem] uppercase tracking-wide text-clay">
                           {f.weekday}
                         </span>
-                        <span className="block font-display text-base leading-tight text-forest">
+                        <span
+                          className={`block font-display text-base leading-tight ${booked ? "text-pine/40 line-through" : "text-forest"}`}
+                        >
                           {f.range}
-                        </span>
-                        <span className="block text-[0.65rem] text-pine/70">
-                          {f.month}
                         </span>
                         {w.note && (
                           <span className="mt-1 block text-[0.6rem] text-clay">
                             {w.note}
                           </span>
                         )}
-                        {isBest && (
-                          <span className="mt-1 inline-block rounded-full bg-lake px-2 py-0.5 text-[0.6rem] font-medium text-cream">
-                            Best
+                        {booked ? (
+                          <span className="mt-1 inline-block rounded-full bg-[#b5552f]/15 px-2 py-0.5 text-[0.6rem] font-medium text-[#b5552f]">
+                            Booked
+                          </span>
+                        ) : meta?.lw.isLong ? (
+                          <span className="mt-1 inline-block rounded-full bg-clay/20 px-2 py-0.5 text-[0.6rem] font-medium text-clay">
+                            ★ {meta.lw.tag}
+                          </span>
+                        ) : null}
+                        {isBest && !booked && (
+                          <span className="mt-1 block">
+                            <span className="inline-block rounded-full bg-lake px-2 py-0.5 text-[0.6rem] font-medium text-cream">
+                              Best
+                            </span>
                           </span>
                         )}
                       </th>
