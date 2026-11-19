@@ -421,7 +421,7 @@ export function GroupClient({ id }: { id: string }) {
                 <tr>
                   <th
                     rowSpan={2}
-                    className="sticky left-0 z-10 min-w-[9rem] bg-cream px-4 py-3 text-left align-bottom font-medium text-clay"
+                    className="sticky left-0 z-10 min-w-[9rem] border-r border-clay/15 bg-cream px-4 py-3 text-left align-bottom font-medium text-clay"
                   >
                     Who
                   </th>
@@ -525,7 +525,9 @@ export function GroupClient({ id }: { id: string }) {
                       key={person}
                       className={`border-t border-clay/15 ${mine ? "bg-forest/5" : ""}`}
                     >
-                      <td className="sticky left-0 z-10 bg-inherit px-4 py-2">
+                      <td
+                        className={`sticky left-0 z-10 border-r border-clay/15 px-4 py-2 ${mine ? "bg-[#ece8de]" : "bg-cream"}`}
+                      >
                         <span className="flex items-center gap-2">
                           <span
                             className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[0.6rem] font-semibold text-cream ${avatarColor(
@@ -571,7 +573,7 @@ export function GroupClient({ id }: { id: string }) {
 
                 {/* Tallies */}
                 <tr className="border-t-2 border-clay/30 bg-sand/40">
-                  <td className="sticky left-0 z-10 bg-sand/40 px-4 py-3 text-xs font-medium text-pine">
+                  <td className="sticky left-0 z-10 border-r border-clay/15 bg-[#f1e9db] px-4 py-3 text-xs font-medium text-pine">
                     Available (✓ / ~)
                   </td>
                   {stats.map((st) => (
