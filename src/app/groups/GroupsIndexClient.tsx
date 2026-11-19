@@ -222,6 +222,10 @@ export function GroupsIndexClient() {
                     const lw = longWeekend(w.start, w.end);
                     const avail = weekendAvailability(w, reservations, TOTAL_ROOMS);
                     const booked = avail.fullyBooked;
+                    const partial = !booked && avail.freeRooms < avail.totalRooms;
+                    const takenBy = avail.blocking
+                      .map((c) => `${c.name} (${c.room})`)
+                      .join(", ");
                     const disabled = full || booked;
                     return (
                       <button
@@ -231,11 +235,9 @@ export function GroupsIndexClient() {
                         disabled={disabled}
                         title={
                           booked
-                            ? `Fully booked — all ${avail.totalRooms} rooms taken: ${avail.blocking
-                                .map((c) => `${c.name} (${c.room})`)
-                                .join(", ")}`
-                            : avail.freeRooms < avail.totalRooms
-                              ? `${avail.freeRooms} of ${avail.totalRooms} rooms free`
+                            ? `Fully booked — all ${avail.totalRooms} rooms taken: ${takenBy}`
+                            : partial
+                              ? `${avail.freeRooms} of ${avail.totalRooms} rooms free — ${takenBy} already booked`
                               : lw.isLong
                                 ? lw.title
                                 : undefined
@@ -292,17 +294,33 @@ export function GroupsIndexClient() {
                           <span className="mt-0.5 block text-[0.65rem] font-medium text-[#b5552f]/80 line-through">
                             Fully booked
                           </span>
-                        ) : lw.isLong ? (
-                          <span
-                            className={`mt-0.5 inline-block rounded-full px-1.5 py-0.5 text-[0.6rem] font-semibold ${
-                              on ? "bg-[#c6952e] text-cream" : "bg-[#c6952e]/15 text-[#a97e24]"
-                            }`}
-                          >
-                            Long weekend · {lw.tag}
-                          </span>
                         ) : (
-                          <span className="mt-0.5 block text-[0.65rem] opacity-0">
-                            .
+                          <span className="mt-0.5 flex flex-wrap items-center gap-1">
+                            {partial && (
+                              <span
+                                className={`inline-block rounded-full px-1.5 py-0.5 text-[0.6rem] font-semibold ${
+                                  on
+                                    ? "bg-cream/20 text-cream"
+                                    : "bg-[#c0702f]/15 text-[#b5552f]"
+                                }`}
+                              >
+                                {avail.freeRooms}/{avail.totalRooms} rooms left
+                              </span>
+                            )}
+                            {lw.isLong && (
+                              <span
+                                className={`inline-block rounded-full px-1.5 py-0.5 text-[0.6rem] font-semibold ${
+                                  on
+                                    ? "bg-[#c6952e] text-cream"
+                                    : "bg-[#c6952e]/15 text-[#a97e24]"
+                                }`}
+                              >
+                                Long weekend · {lw.tag}
+                              </span>
+                            )}
+                            {!partial && !lw.isLong && (
+                              <span className="block text-[0.65rem] opacity-0">.</span>
+                            )}
                           </span>
                         )}
                       </button>

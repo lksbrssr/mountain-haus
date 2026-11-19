@@ -441,16 +441,19 @@ export function GroupClient({ id }: { id: string }) {
                     const isBest = score > 0 && score === bestScore;
                     const meta = weekMeta.get(w.id);
                     const booked = meta?.avail.fullyBooked ?? false;
+                    const partial =
+                      !!meta && !booked && meta.avail.freeRooms < meta.avail.totalRooms;
+                    const takenBy = meta?.avail.blocking
+                      .map((c) => `${c.name} (${c.room})`)
+                      .join(", ");
                     return (
                       <th
                         key={w.id}
                         title={
                           booked
-                            ? `Fully booked — all ${meta!.avail.totalRooms} rooms taken: ${meta!.avail.blocking
-                                .map((c) => `${c.name} (${c.room})`)
-                                .join(", ")}`
-                            : meta && meta.avail.freeRooms < meta.avail.totalRooms
-                              ? `${meta.avail.freeRooms} of ${meta.avail.totalRooms} rooms free`
+                            ? `Fully booked — all ${meta!.avail.totalRooms} rooms taken: ${takenBy}`
+                            : partial
+                              ? `${meta!.avail.freeRooms} of ${meta!.avail.totalRooms} rooms free — ${takenBy} already booked`
                               : meta?.lw.isLong
                                 ? meta.lw.title
                                 : undefined
@@ -488,11 +491,20 @@ export function GroupClient({ id }: { id: string }) {
                           <span className="mt-1 inline-block rounded-full bg-[#b5552f]/15 px-2 py-0.5 text-[0.6rem] font-medium text-[#b5552f]">
                             Fully booked
                           </span>
-                        ) : meta?.lw.isLong ? (
-                          <span className="mt-1 inline-block rounded-full bg-[#c6952e]/15 px-2 py-0.5 text-[0.6rem] font-medium text-[#a97e24]">
-                            ✨ {meta.lw.tag}
-                          </span>
-                        ) : null}
+                        ) : (
+                          <>
+                            {partial && (
+                              <span className="mt-1 inline-block rounded-full bg-[#c0702f]/15 px-2 py-0.5 text-[0.6rem] font-medium text-[#b5552f]">
+                                {meta!.avail.freeRooms}/{meta!.avail.totalRooms} rooms left
+                              </span>
+                            )}
+                            {meta?.lw.isLong && (
+                              <span className="mt-1 inline-block rounded-full bg-[#c6952e]/15 px-2 py-0.5 text-[0.6rem] font-medium text-[#a97e24]">
+                                ✨ {meta.lw.tag}
+                              </span>
+                            )}
+                          </>
+                        )}
                         {isBest && !booked && (
                           <span className="mt-1 block">
                             <span className="inline-block rounded-full bg-lake px-2 py-0.5 text-[0.6rem] font-medium text-cream">
