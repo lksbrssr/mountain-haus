@@ -35,7 +35,7 @@ export const rooms: Room[] = [
     short: "Upstairs corner room looking south toward the Seebergschneid.",
     description:
       "A bright upper-floor room with big windows framing the Seebergschneid to the south and plenty of sun. A queen bed and a desk in the corner — the nicest spot in the house to sit with a coffee and a map of tomorrow's hike.",
-    sleeps: 2,
+    sleeps: 4,
     bed: "1 queen",
     size: "~13 m²",
     view: "Seebergschneid",
@@ -48,7 +48,7 @@ export const rooms: Room[] = [
     short: "Three beds, balcony access, and room to make a den.",
     description:
       "Built for a tribe of small people. Three single beds, space on the floor for games, and a door onto the balcony. Blackout blinds for proper lie-ins and a shelf of books and toys. Grown-ups welcome too.",
-    sleeps: 3,
+    sleeps: 2,
     bed: "3 singles",
     size: "~14 m²",
     view: "Garden & balcony",
