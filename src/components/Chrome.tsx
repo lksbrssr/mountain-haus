@@ -52,6 +52,12 @@ export function SiteFooter() {
       <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-10 text-sm text-pine sm:flex-row sm:items-center sm:justify-between">
         <p className="font-display text-base text-forest">{house.name}</p>
         <p className="opacity-70">{house.location}</p>
+        <Link
+          href="/groups"
+          className="opacity-70 transition hover:text-forest hover:opacity-100"
+        >
+          Find a date for the group →
+        </Link>
         <YodelButton />
       </div>
     </footer>

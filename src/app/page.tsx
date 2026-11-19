@@ -76,6 +76,31 @@ export default function Home() {
       {/* Rooms — dates-first availability */}
       <section id="rooms" className="bg-sand/50 py-20">
         <AvailabilityExplorer rooms={rooms} />
+
+        {/* Not sure when? Nudge toward the group-booking poll. */}
+        <div className="mx-auto mt-14 max-w-6xl px-6">
+          <Link
+            href="/groups"
+            className="group flex flex-col items-start gap-4 rounded-3xl border border-clay/30 bg-cream p-7 transition hover:-translate-y-1 hover:shadow-soft sm:flex-row sm:items-center sm:justify-between sm:p-8"
+          >
+            <div className="flex items-start gap-4">
+              <span className="text-3xl">🗓️</span>
+              <div>
+                <h3 className="font-display text-2xl text-forest">
+                  Not sure when to come?
+                </h3>
+                <p className="mt-1 max-w-xl leading-relaxed text-pine/90">
+                  Find a date that works for the group you&apos;re trying to
+                  hang out with. Start a poll, drop a few weekends, and let
+                  everyone mark when they&apos;re free.
+                </p>
+              </div>
+            </div>
+            <span className="shrink-0 rounded-full bg-forest px-5 py-2.5 text-sm font-medium text-cream transition group-hover:bg-pine">
+              Find a date →
+            </span>
+          </Link>
+        </div>
       </section>
 
       {/* What to do in the area */}
