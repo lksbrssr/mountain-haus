@@ -240,7 +240,7 @@ export function GroupsIndexClient() {
                                 ? lw.title
                                 : undefined
                         }
-                        className={`relative rounded-2xl border-2 px-3 py-2.5 text-left transition ${
+                        className={`relative overflow-visible rounded-2xl border-2 px-3 py-2.5 text-left transition ${
                           booked
                             ? "cursor-not-allowed border-clay/20 bg-sand/50 text-pine/40"
                             : full
@@ -255,11 +255,31 @@ export function GroupsIndexClient() {
                         }`}
                       >
                         {lw.isLong && !booked && (
+                          <span className="glimmer-layer" aria-hidden />
+                        )}
+                        {lw.isLong && !booked && (
                           <span
-                            className="pointer-events-none absolute -right-1.5 -top-1.5 text-sm"
+                            className="pointer-events-none absolute inset-0 z-10"
                             aria-hidden
                           >
-                            ✨
+                            <span
+                              className="twinkle absolute -right-1 -top-1.5 text-sm"
+                              style={{ animationDelay: "0s" }}
+                            >
+                              ✨
+                            </span>
+                            <span
+                              className="twinkle absolute right-3 top-1/2 text-[0.55rem] text-[#e7c96a]"
+                              style={{ animationDelay: "0.8s" }}
+                            >
+                              ✦
+                            </span>
+                            <span
+                              className="twinkle absolute -left-1 bottom-2 text-[0.7rem] text-[#e7c96a]"
+                              style={{ animationDelay: "1.5s" }}
+                            >
+                              ✦
+                            </span>
                           </span>
                         )}
                         <span className="block text-[0.7rem] uppercase tracking-wide opacity-70">
@@ -327,20 +347,6 @@ export function GroupsIndexClient() {
                 </div>
               )}
 
-              <p className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[0.7rem] text-clay">
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="inline-block h-3 w-3 rounded border-2 border-forest/40" />
-                  weekend
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="inline-block h-3 w-3 rounded border-2 border-[#c6952e]" />
-                  ✨ long weekend (public holiday alongside)
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="line-through">Fully booked</span> = all rooms
-                  taken (the group&apos;s own bookings don&apos;t count)
-                </span>
-              </p>
             </div>
 
             {createError && (

@@ -43,3 +43,52 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   to { opacity: 1; }
 }
 .visit-wait { opacity: 0; animation: visit-in 0.4s ease-out 3s forwards; }
+
+/* Long-weekend glimmer — a lens-flare glint that sweeps across the card.
+   Its own clipped layer so the diagonal streak follows the rounded corners
+   while the corner sparkles are free to sit outside the card. */
+.glimmer-layer {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+.glimmer-layer::after {
+  content: "";
+  position: absolute;
+  top: -60%;
+  bottom: -60%;
+  left: -40%;
+  width: 26%;
+  transform: rotate(18deg);
+  background: linear-gradient(
+    90deg,
+    rgba(255, 248, 224, 0) 0%,
+    rgba(255, 243, 205, 0.55) 35%,
+    rgba(255, 255, 250, 0.95) 50%,
+    rgba(255, 243, 205, 0.55) 65%,
+    rgba(255, 248, 224, 0) 100%
+  );
+  filter: blur(3px);
+  animation: glimmer-sweep 3.2s ease-in-out infinite;
+}
+@keyframes glimmer-sweep {
+  0% { left: -45%; opacity: 0; }
+  15% { opacity: 1; }
+  55% { left: 120%; opacity: 1; }
+  56%, 100% { left: 120%; opacity: 0; }
+}
+
+/* Twinkling sparkles around a long weekend. */
+@keyframes twinkle {
+  0%, 100% { opacity: 0; transform: scale(0.3) rotate(0deg); }
+  50% { opacity: 1; transform: scale(1) rotate(25deg); }
+}
+.twinkle { animation: twinkle 2.2s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .glimmer-layer::after { animation: none; opacity: 0; }
+  .twinkle { animation: none; opacity: 1; }
+}
