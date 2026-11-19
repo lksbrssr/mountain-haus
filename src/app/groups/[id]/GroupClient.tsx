@@ -12,13 +12,15 @@ import {
 import {
   formatWeekend,
   monthKeyOf,
-  weekendConflicts,
+  weekendAvailability,
   type Availability,
 } from "@/lib/weekends";
 import { longWeekend } from "@/lib/holidays";
 import type { PublicReservation } from "@/lib/reservations";
+import { rooms } from "@/lib/rooms";
 
 const NAME_KEY = "haus-group-name";
+const TOTAL_ROOMS = rooms.filter((r) => !r.underConstruction).length;
 
 function monthLabelOf(key: string): string {
   return new Intl.DateTimeFormat("en-GB", {
@@ -252,17 +254,20 @@ export function GroupClient({ id }: { id: string }) {
     [stats],
   );
 
-  // Long-weekend + already-booked info per weekend id.
+  // Long-weekend + whole-haus availability per weekend id.
   const weekMeta = useMemo(() => {
     const m = new Map<
       string,
-      { lw: ReturnType<typeof longWeekend>; booked: PublicReservation[] }
+      {
+        lw: ReturnType<typeof longWeekend>;
+        avail: ReturnType<typeof weekendAvailability>;
+      }
     >();
     if (!group) return m;
     for (const w of group.weekends) {
       m.set(w.id, {
         lw: longWeekend(w.start, w.end),
-        booked: weekendConflicts(w, reservations),
+        avail: weekendAvailability(w, reservations, TOTAL_ROOMS),
       });
     }
     return m;
@@ -435,20 +440,26 @@ export function GroupClient({ id }: { id: string }) {
                     const f = formatWeekend(w);
                     const isBest = score > 0 && score === bestScore;
                     const meta = weekMeta.get(w.id);
-                    const booked = (meta?.booked.length ?? 0) > 0;
+                    const booked = meta?.avail.fullyBooked ?? false;
                     return (
                       <th
                         key={w.id}
                         title={
                           booked
-                            ? `Already booked: ${meta!.booked
+                            ? `Fully booked — all ${meta!.avail.totalRooms} rooms taken: ${meta!.avail.blocking
                                 .map((c) => `${c.name} (${c.room})`)
                                 .join(", ")}`
-                            : meta?.lw.isLong
-                              ? meta.lw.title
-                              : undefined
+                            : meta && meta.avail.freeRooms < meta.avail.totalRooms
+                              ? `${meta.avail.freeRooms} of ${meta.avail.totalRooms} rooms free`
+                              : meta?.lw.isLong
+                                ? meta.lw.title
+                                : undefined
                         }
                         className={`min-w-[5.5rem] px-2 py-3 text-center align-bottom ${
+                          !booked && meta?.lw.isLong
+                            ? "border-t-2 border-t-[#c6952e]"
+                            : ""
+                        } ${
                           booked
                             ? "bg-sand/50"
                             : fit === "clear"
@@ -475,11 +486,11 @@ export function GroupClient({ id }: { id: string }) {
                         )}
                         {booked ? (
                           <span className="mt-1 inline-block rounded-full bg-[#b5552f]/15 px-2 py-0.5 text-[0.6rem] font-medium text-[#b5552f]">
-                            Booked
+                            Fully booked
                           </span>
                         ) : meta?.lw.isLong ? (
-                          <span className="mt-1 inline-block rounded-full bg-clay/20 px-2 py-0.5 text-[0.6rem] font-medium text-clay">
-                            ★ {meta.lw.tag}
+                          <span className="mt-1 inline-block rounded-full bg-[#c6952e]/15 px-2 py-0.5 text-[0.6rem] font-medium text-[#a97e24]">
+                            ✨ {meta.lw.tag}
                           </span>
                         ) : null}
                         {isBest && !booked && (

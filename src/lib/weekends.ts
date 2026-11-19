@@ -83,19 +83,52 @@ export function groupByMonth(weekends: WeekendOption[]): MonthGroup[] {
     });
 }
 
-// Reservations that overlap a weekend (Fri, Sat & Sun nights → checkout Mon).
-export function weekendConflicts(
+// Bookings by these people are the group's own — treat them as cancellable, so
+// they never count as the haus being "taken" for a group weekend. Matched by
+// first name appearing as a word in the booking name (e.g. "Miles, Fifi & Wilda").
+export const CANCELLABLE_NAMES = ["lukas", "caroline", "miles", "francis"];
+
+export function isCancellableBooking(name: string): boolean {
+  const words = name.toLowerCase().split(/[^a-zäöüß]+/i).filter(Boolean);
+  return CANCELLABLE_NAMES.some((n) => words.includes(n));
+}
+
+export type WeekendAvailability = {
+  // True only when every bookable room is taken by a non-cancellable booking.
+  fullyBooked: boolean;
+  // How many rooms are still free (cancellable bookings don't count).
+  freeRooms: number;
+  totalRooms: number;
+  // The bookings that actually block (excludes the group's own, cancellable ones).
+  blocking: PublicReservation[];
+};
+
+// Whole-haus availability for a weekend (Fri, Sat & Sun nights → checkout Mon).
+// A weekend is only "fully booked" when all `totalRooms` are occupied by
+// bookings that aren't the group's own cancellable ones.
+export function weekendAvailability(
   w: WeekendOption,
   reservations: PublicReservation[],
-): PublicReservation[] {
+  totalRooms: number,
+): WeekendAvailability {
   const checkout = (() => {
     const d = new Date(`${w.end}T00:00:00`);
     d.setDate(d.getDate() + 1);
     return iso(d);
   })();
-  return reservations.filter((r) =>
-    rangesOverlap(w.start, checkout, r.checkIn, r.checkOut),
+  const blocking = reservations.filter(
+    (r) =>
+      rangesOverlap(w.start, checkout, r.checkIn, r.checkOut) &&
+      !isCancellableBooking(r.name),
   );
+  const occupiedRooms = new Set(blocking.map((r) => r.room)).size;
+  const freeRooms = Math.max(0, totalRooms - occupiedRooms);
+  return {
+    fullyBooked: totalRooms > 0 && freeRooms === 0,
+    freeRooms,
+    totalRooms,
+    blocking,
+  };
 }
 
 // "Fri–Sun" / "9–11" / "Jan" parts for a weekend label.

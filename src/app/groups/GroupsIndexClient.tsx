@@ -14,13 +14,15 @@ import {
   groupByMonth,
   MAX_WEEKENDS,
   upcomingWeekends,
-  weekendConflicts,
+  weekendAvailability,
   type WeekendOption,
 } from "@/lib/weekends";
 import { longWeekend } from "@/lib/holidays";
 import type { PublicReservation } from "@/lib/reservations";
+import { rooms } from "@/lib/rooms";
 
 const NAME_KEY = "haus-group-name";
+const TOTAL_ROOMS = rooms.filter((r) => !r.underConstruction).length;
 
 export function GroupsIndexClient() {
   const router = useRouter();
@@ -218,8 +220,8 @@ export function GroupsIndexClient() {
                     const full = !on && picked.length >= MAX_WEEKENDS;
                     const f = formatWeekend(w);
                     const lw = longWeekend(w.start, w.end);
-                    const conflicts = weekendConflicts(w, reservations);
-                    const booked = conflicts.length > 0;
+                    const avail = weekendAvailability(w, reservations, TOTAL_ROOMS);
+                    const booked = avail.fullyBooked;
                     const disabled = full || booked;
                     return (
                       <button
@@ -229,23 +231,37 @@ export function GroupsIndexClient() {
                         disabled={disabled}
                         title={
                           booked
-                            ? `Already booked: ${conflicts
+                            ? `Fully booked — all ${avail.totalRooms} rooms taken: ${avail.blocking
                                 .map((c) => `${c.name} (${c.room})`)
                                 .join(", ")}`
-                            : lw.isLong
-                              ? lw.title
-                              : undefined
+                            : avail.freeRooms < avail.totalRooms
+                              ? `${avail.freeRooms} of ${avail.totalRooms} rooms free`
+                              : lw.isLong
+                                ? lw.title
+                                : undefined
                         }
-                        className={`relative rounded-2xl border px-3 py-2.5 text-left transition ${
-                          on
-                            ? "border-forest bg-forest text-cream"
-                            : booked
-                              ? "cursor-not-allowed border-clay/20 bg-sand/50 text-pine/40"
-                              : full
-                                ? "cursor-not-allowed border-clay/20 bg-white/50 text-pine/40"
-                                : "border-clay/30 bg-white text-forest hover:border-forest/40"
+                        className={`relative rounded-2xl border-2 px-3 py-2.5 text-left transition ${
+                          booked
+                            ? "cursor-not-allowed border-clay/20 bg-sand/50 text-pine/40"
+                            : full
+                              ? "cursor-not-allowed border-clay/20 bg-white/50 text-pine/40"
+                              : on
+                                ? lw.isLong
+                                  ? "border-[#c6952e] bg-forest text-cream ring-2 ring-[#c6952e]/40"
+                                  : "border-forest bg-forest text-cream"
+                                : lw.isLong
+                                  ? "border-[#c6952e] bg-[#c6952e]/5 text-forest hover:bg-[#c6952e]/10"
+                                  : "border-forest/30 bg-white text-forest hover:border-forest"
                         }`}
                       >
+                        {lw.isLong && !booked && (
+                          <span
+                            className="pointer-events-none absolute -right-1.5 -top-1.5 text-sm"
+                            aria-hidden
+                          >
+                            ✨
+                          </span>
+                        )}
                         <span className="block text-[0.7rem] uppercase tracking-wide opacity-70">
                           {f.weekday}
                         </span>
@@ -254,15 +270,15 @@ export function GroupsIndexClient() {
                         </span>
                         {booked ? (
                           <span className="mt-0.5 block text-[0.65rem] font-medium text-[#b5552f]/80 line-through">
-                            Booked
+                            Fully booked
                           </span>
                         ) : lw.isLong ? (
                           <span
                             className={`mt-0.5 inline-block rounded-full px-1.5 py-0.5 text-[0.6rem] font-semibold ${
-                              on ? "bg-cream/20 text-cream" : "bg-clay/20 text-clay"
+                              on ? "bg-[#c6952e] text-cream" : "bg-[#c6952e]/15 text-[#a97e24]"
                             }`}
                           >
-                            ★ {lw.tag}
+                            Long weekend · {lw.tag}
                           </span>
                         ) : (
                           <span className="mt-0.5 block text-[0.65rem] opacity-0">
@@ -292,8 +308,8 @@ export function GroupsIndexClient() {
                         >
                           {f.range} {f.month}
                           {lw.isLong && (
-                            <span title={lw.title} className="text-clay">
-                              ★
+                            <span title={lw.title} aria-hidden>
+                              ✨
                             </span>
                           )}
                           <button
@@ -311,12 +327,19 @@ export function GroupsIndexClient() {
                 </div>
               )}
 
-              <p className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[0.7rem] text-clay">
-                <span>
-                  <span className="text-clay">★</span> long weekend (public
-                  holiday alongside)
+              <p className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[0.7rem] text-clay">
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="inline-block h-3 w-3 rounded border-2 border-forest/40" />
+                  weekend
                 </span>
-                <span className="line-through">Booked</span> = haus already taken
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="inline-block h-3 w-3 rounded border-2 border-[#c6952e]" />
+                  ✨ long weekend (public holiday alongside)
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="line-through">Fully booked</span> = all rooms
+                  taken (the group&apos;s own bookings don&apos;t count)
+                </span>
               </p>
             </div>
 
