@@ -31,7 +31,7 @@ export const rooms: Room[] = [
   },
   {
     slug: "mountain-view",
-    name: "Mountain View",
+    name: "Kids' Corner",
     short: "Upstairs corner room looking south toward the Seebergschneid.",
     description:
       "A bright upper-floor room with big windows framing the Seebergschneid to the south and plenty of sun. A queen bed and a desk in the corner — the nicest spot in the house to sit with a coffee and a map of tomorrow's hike.",
@@ -44,7 +44,7 @@ export const rooms: Room[] = [
   },
   {
     slug: "kids-paradise",
-    name: "Kids' Paradise",
+    name: "East Wing",
     short: "Three beds, balcony access, and room to make a den.",
     description:
       "Built for a tribe of small people. Three single beds, space on the floor for games, and a door onto the balcony. Blackout blinds for proper lie-ins and a shelf of books and toys. Grown-ups welcome too.",
@@ -67,20 +67,6 @@ export const rooms: Room[] = [
     view: "Garden",
     amenities: ["Ground floor", "Queen bed", "Garden access", "Steps from the kitchen", "Snug & quiet"],
     images: ["/rooms/the-studio-1.webp", "/rooms/the-studio-2.webp"],
-  },
-  {
-    slug: "attic",
-    name: "Attic",
-    short: "Right under the eaves — currently under construction.",
-    description:
-      "The top of the house, being brought back to life. Right now it's bare boards, fresh insulation and a lot of potential: a big dormer onto a little balcony, a skylight that throws afternoon sun across the floor, and the whole footprint of the roof to play with. Not ready for guests yet — check back once the dust has settled.",
-    sleeps: 2,
-    bed: "TBC",
-    size: "~20 m²",
-    view: "Eaves & skylight",
-    amenities: ["Dormer & balcony", "Skylight", "Under the eaves", "Top floor", "Coming soon"],
-    images: ["/rooms/attic-1.webp", "/rooms/attic-2.webp"],
-    underConstruction: true,
   },
 ];
 

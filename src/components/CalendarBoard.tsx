@@ -427,7 +427,7 @@ export function CalendarBoard({ rooms }: { rooms: RoomRef[] }) {
 
                 <div
                   className="relative cursor-crosshair touch-pan-x"
-                  style={{ width: dayAreaW, height: rowH, ...gridBg }}
+                  style={{ width: dayAreaW, minHeight: rowH, ...gridBg }}
                   onPointerDown={(e) => onDown(e, ri)}
                   onPointerMove={(e) => onMove(e, ri)}
                   onPointerUp={(e) => onUp(e, ri)}
